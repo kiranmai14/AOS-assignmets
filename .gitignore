@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+#bin folder
+Assignment 1/.vscode
+Assignment 1/bin
