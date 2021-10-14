@@ -1,23 +1,9 @@
-#include <iostream>
-#include <unistd.h>
-#include <dirent.h>
-#include <vector>
-#include <algorithm>
-#include <ctime>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <cerrno>
-#include <cstring>
-#include <sstream>
-#include <string>
-#include <pwd.h>
-#include <grp.h>
-#include <iomanip> //for setw
-#include <sys/ioctl.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <math.h>
-#include <termios.h>
+#include "headers.h"
+#define KEY_UP 72
+#define KEY_DOWN 80
+#define KEY_LEFT 75
+#define KEY_RIGHT 77
+#define gotoxy(x, y) printf("\033[%d;%dH", (x), (y))
 using namespace std;
 
 // to get the current working directory
@@ -191,7 +177,6 @@ void printDetails(int f, int l, vector<vector<string>> file)
         cout << left << setw(20) << formatDisplay(file[i][3]);
         cout << left << setw(18) << file[i][4];
         cout << left << setw(24) << file[i][5];
-        cout<<"x";
     }
 }
 struct termios orig_termios;
@@ -221,24 +206,74 @@ void normalMode()
     vector<string> files; // directory files names are stored in this variable
     files = getAndSortFiles();
     vector<vector<string>> filesWithdetails;
-    getDetailsOfFiles(files, filesWithdetails);
+    getDetailsOfFiles(files, filesWithdetails); // this gets the details of all giles
     cout << "\033[2J\033[1;1H";
-    printDetails(0, 8, filesWithdetails);
+    printDetails(0, filesWithdetails.size() - 1, filesWithdetails);
     enableRawMode();
     vector<unsigned short> winSize = getWindowSize();
-    cout << winSize[1] << " ";
-    cout << getOffset(winSize[1]);
-    char c;
+    int cursor = 1; // to maintain position ehich is diplayed on the screen
+    int first = 0, last = 0;
+    printf("\033[%d;%dH", 1, 1);
+    bool overflow = false;
+    int x = 0, y = 0;
     while (true)
     {
-       
-        printf("\033[%d;%dH", 0, 0);
+        char inp[3];
+        memset(inp, 0, 3 * sizeof(inp[0]));
+        int capacity = 0;
+        if (filesWithdetails.size() < winSize[0])
+            capacity = filesWithdetails.size();
+        else
+        {
+            capacity = winSize[0];
+            x = x + 1;
+            y = y + capacity;
+            overflow = true;
+        }
+
+        int offest = getOffset(winSize[1]);
         fflush(0);
-        if (read(STDIN_FILENO, &c, 1) == 1 && c == 'q')
+        if (read(STDIN_FILENO, &inp, 3) == 0)
+        {
+            continue;
+        }
+        else if (inp[2] == 'A')
+        {
+            if (cursor == 1)
+                continue;
+            else
+            {
+                cout << "\033[2J\033[1;1H";
+                printDetails(0, capacity - 1, filesWithdetails);
+                cursor--;
+                gotoxy(cursor, 1);
+            }
+        }
+        else if (inp[2] == 'B')
+        {
+            if (cursor == capacity)
+                continue;
+            else
+            {
+                cout << "\033[2J\033[1;1H";
+                printDetails(0, capacity - 1, filesWithdetails);
+                cursor++;
+                gotoxy(cursor, 1);
+                winSize = getWindowSize();
+            }
+        }
+        else if (inp[0] == 'q')
         {
             disableRawMode();
             cout << "\033[2J\033[1;1H";
             break;
+        }
+        else if (inp[0] == 'k' && overflow)
+        {
+            cout << "\033[2J\033[1;1H";
+            printDetails(0, capacity - 1, filesWithdetails);
+            cursor++;
+            gotoxy(cursor, 1);
         }
     }
 }
