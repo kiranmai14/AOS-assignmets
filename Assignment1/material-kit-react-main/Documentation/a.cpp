@@ -1,14 +1,12 @@
 
-
-#include "headers.h"
+#include "header.h"
 #define KEY_UP 72
 #define KEY_DOWN 80
 #define KEY_LEFT 75
 #define KEY_RIGHT 77
 #define gotoxy(x, y) printf("\033[%d;%dH", (x), (y))
 using namespace std;
-char root[256];
-char cwd[256];
+
 // to get the current working directory
 char *get_cwd()
 {
@@ -126,40 +124,9 @@ bool getFileDetails(string file)
 } // to get details of the file
 bool getDetailsOfFiles(vector<string> files, vector<vector<string>> &filesWithdetails)
 {
-    gotoxy(20, 4);
-    cout << files.size() << endl;
     struct stat fileInfo;
     for (int i = 0; i < files.size(); i++)
     {
-        char *x;
-        if (strcmp(root, cwd) != 0)
-        {
-            strcpy(x, cwd);
-            strcat(x,"/");
-            strcat(x, (const char *)files[i].c_str());
-            cout << x << " ";
-            if (stat(x, &fileInfo) != 0) // Use stat() to get the info
-            {
-                std::cerr << "Error: " << strerror(errno) << '\n';
-                return (EXIT_FAILURE);
-            }
-            string fileName = files[i];
-            vector<string> vect;
-            vect.push_back(fileName);
-            vect.push_back(convertSize(fileInfo.st_size));
-            vect.push_back(getUserId(fileInfo.st_uid));
-            vect.push_back(getGroupId(fileInfo.st_gid));
-            vect.push_back(permissions(fileInfo.st_mode));
-            vect.push_back(ctime(&fileInfo.st_mtime));
-            for (auto x : vect)
-            {
-                cout << x << endl;
-            }
-            filesWithdetails.push_back(vect);
-            continue;
-        }
-
-        // cout << files[i] << " ";
         if (stat((const char *)files[i].c_str(), &fileInfo) != 0) // Use stat() to get the info
         {
             std::cerr << "Error: " << strerror(errno) << '\n';
@@ -263,7 +230,6 @@ bool normalMode(string wd)
 
     // char *wd = get_cwd();
     vector<string> files; // directory files names are stored in this variable
-
     files = getAndSortFiles((char *)wd.c_str());
     vector<vector<string>> filesWithdetails;
     getDetailsOfFiles(files, filesWithdetails); // this gets the details of all giles
@@ -369,7 +335,6 @@ bool normalMode(string wd)
             if (offset == 1)
             {
                 index = cursor - 1;
-                
                 if (checkDir(files[index]))
                 {
                     if (files[index] == ".")
@@ -383,14 +348,13 @@ bool normalMode(string wd)
                             if (dum[i] == '/')
                                 break;
                         }
-                        int len = dum.size() - 1 - i;
-                        cout << wd;
+                        int len = dum.size() -  i;
+                        // cout<<wd;
                         dum.erase(i, len);
                         rig.push(lef.top());
                         lef.pop();
                         lef.push(dum);
-                        strcpy(cwd, (const char *)dum.c_str());
-                        cout << dum;
+                        // cout<<dum;
                         if (normalMode(dum))
                         {
                             disableRawMode();
@@ -402,8 +366,6 @@ bool normalMode(string wd)
                     {
                         string dum = wd;
                         dum = dum + "/" + files[index];
-                        strcpy(cwd, (const char *)dum.c_str());
-                        cout << dum;
                         rig.push(dum);
                         if (normalMode(dum))
                         {
@@ -464,8 +426,6 @@ int main()
 
     enableRawMode();
     char *wd = get_cwd();
-    strcpy(root, wd);
-    strcpy(cwd,root);
     lef.push(wd);
     normalMode(wd);
 }
