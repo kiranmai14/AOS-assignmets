@@ -12,6 +12,7 @@
 #include <string>
 #include <pwd.h>
 #include <grp.h>
+#include <iomanip> //for setw
 using namespace std;
 
 // to get the current working directory
@@ -108,16 +109,32 @@ string convertSize(size_t size)
     string result = convertToString(roundOff(size_d)) + " " + SIZES[div];
     return result;
 }
-
-// to get details of the file
+// get details of single file
+bool getFileDetails(string file)
+{
+    vector<string> vect;
+    struct stat fileInfo;
+    if (stat((const char *)file.c_str(), &fileInfo) != 0) // Use stat() to get the info
+    {
+        std::cerr << "Error: " << strerror(errno) << '\n';
+        return (EXIT_FAILURE);
+    }
+    else
+    {
+        vect.push_back(file);
+        vect.push_back(convertSize(fileInfo.st_size));
+        vect.push_back(getUserId(fileInfo.st_uid));
+        vect.push_back(getGroupId(fileInfo.st_gid));
+        vect.push_back(permissions(fileInfo.st_mode));
+        vect.push_back(ctime(&fileInfo.st_mtime));
+    }
+    return true;
+} // to get details of the file
 bool getDetailsOfFiles(vector<string> files, vector<vector<string>> &filesWithdetails)
 {
     struct stat fileInfo;
-    // for (auto file : files)
-    //     cout << file << endl;
     for (int i = 0; i < files.size(); i++)
     {
-        cout << files[i] << endl;
         if (stat((const char *)files[i].c_str(), &fileInfo) != 0) // Use stat() to get the info
         {
             std::cerr << "Error: " << strerror(errno) << '\n';
@@ -140,17 +157,16 @@ int main()
     char *wd = get_cwd();
     vector<string> files; // directory files names are stored in this variable
     files = getAndSortFiles();
-    // for (auto file : files)
-    //     cout << file << endl;
     vector<vector<string>> filesWithdetails;
     getDetailsOfFiles(files, filesWithdetails);
     for (auto file : filesWithdetails)
     {
-        for (auto data : file)
-        {
-            cout << data << "\t";
-        }
-        cout << endl;
+            cout << left <<setw(25)<<file[0] <<"\t";
+            cout << left <<setw(10)<<file[1] <<"\t";
+            cout << left <<setw(15)<<file[2] <<"\t";
+            cout << left <<setw(15)<<file[3] <<"\t";
+            cout << left <<setw(12)<<file[4] <<"\t";
+            cout << left <<setw(25)<<file[5];
     }
     return 0;
 }
