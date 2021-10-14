@@ -159,14 +159,23 @@ int main()
     files = getAndSortFiles();
     vector<vector<string>> filesWithdetails;
     getDetailsOfFiles(files, filesWithdetails);
+    // cout<<"\t"<<"1";
     for (auto file : filesWithdetails)
     {
-            cout << left <<setw(25)<<file[0] <<"\t";
-            cout << left <<setw(10)<<file[1] <<"\t";
-            cout << left <<setw(15)<<file[2] <<"\t";
-            cout << left <<setw(15)<<file[3] <<"\t";
-            cout << left <<setw(12)<<file[4] <<"\t";
-            cout << left <<setw(25)<<file[5];
+            if(file[0].size() > 13){
+                string s1 = file[0].substr(0,12);
+                s1 = s1+"...";
+                cout << left <<setw(20)<<s1;
+
+            }
+            else{
+                cout << left <<setw(20)<<file[0];
+            }
+            cout << left <<setw(15)<<file[1];
+            cout << left <<setw(15)<<file[2];
+            cout << left <<setw(15)<<file[3];
+            cout << left <<setw(18)<<file[4];
+            cout << left <<setw(24)<<file[5];
     }
     return 0;
 }
