@@ -227,12 +227,14 @@ void normalMode()
         capacity = filesWithdetails.size();
         x = x + 1;
         y = y + capacity;
-        if (y*offset > winSize[0])
+        if (y*offset > winSize[0]) 
         {
-            cout << y << " " << capacity << " " << winSize[0];
             y = winSize[0]/ offset;
             overflow = true;
             capacity = y*offset;
+        }
+        else{
+            capacity = capacity*offset;
         }
        
     }
@@ -249,7 +251,6 @@ void normalMode()
             capacity = y*offset;
         }
     }
-    // cout << y << " " << capacity << " " << winSize[0];
     cout << "\033[2J\033[1;1H"; // clearing the screen
     printDetails(x - 1, y - 1, filesWithdetails);
     printf("\033[%d;%dH", 0, 0); // curesor at position (1,1)
