@@ -182,8 +182,8 @@ void printDetails(int f, int l, vector<vector<string>> file)
             file[i][5].erase(file[i][5].length() - 1);
         }
         cout << left << setw(24) << file[i][5];
-        if(i!=l)
-            cout<<endl;
+        if (i != l)
+            cout << endl;
     }
 }
 struct termios orig_termios;
@@ -220,8 +220,13 @@ void normalMode()
     bool overflow = false;
     int x = 0, y = 0;
     int capacity = 0;
+    int offset = getOffset(winSize[1]);
     if (filesWithdetails.size() < winSize[0])
+    {
         capacity = filesWithdetails.size();
+        x = x + 1;
+        y = y + capacity;
+    }
     else
     {
         capacity = winSize[0];
@@ -229,15 +234,18 @@ void normalMode()
         y = y + capacity;
         overflow = true;
     }
-    int offset = getOffset(winSize[1]);
     cout << "\033[2J\033[1;1H"; // clearing the screen
-    printDetails(x-1, (y/offset)-1, filesWithdetails);
+    printDetails(x - 1, (y / offset) - 1, filesWithdetails);
     printf("\033[%d;%dH", 0, 0); // curesor at position (1,1)
     while (true)
     {
         char inp[3];
         memset(inp, 0, 3 * sizeof(inp[0]));
         fflush(0);
+        if (filesWithdetails.size() > winSize[0])
+        {
+            overflow = true;
+        }
         if (read(STDIN_FILENO, &inp, 3) == 0)
         {
             continue;
@@ -249,7 +257,7 @@ void normalMode()
             else
             {
                 cout << "\033[2J\033[1;1H";
-                printDetails(x-1, (y/offset)-1, filesWithdetails);
+                printDetails(x - 1, (y / offset) - 1, filesWithdetails);
                 cursor--;
                 gotoxy(cursor, 1);
             }
@@ -261,16 +269,25 @@ void normalMode()
             else
             {
                 cout << "\033[2J\033[1;1H";
-                printDetails(x-1, (y/offset)-1, filesWithdetails);
+                printDetails(x - 1, (y / offset) - 1, filesWithdetails);
                 cursor++;
                 gotoxy(cursor, 1);
             }
         }
-        else if (inp[0] == 'l' && overflow)
+        else if (inp[0] == 'l' && overflow && cursor == capacity && y < filesWithdetails.size())
         {
+            x++;
+            y++;
             cout << "\033[2J\033[1;1H";
-            printDetails(0, capacity - 1, filesWithdetails);
-            cursor++;
+            printDetails(x - 1, (y / offset) - 1, filesWithdetails);
+            gotoxy(cursor, 1);
+        }
+        else if (inp[0] == 'k' && overflow && cursor == 1 && x > 1)
+        {
+            x--;
+            y--;
+            cout << "\033[2J\033[1;1H";
+            printDetails(x - 1, (y / offset) - 1, filesWithdetails);
             gotoxy(cursor, 1);
         }
         else if (inp[0] == 'q')
