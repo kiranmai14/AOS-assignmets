@@ -1,3 +1,5 @@
+
+
 #include "headers.h"
 #define KEY_UP 72
 #define KEY_DOWN 80
@@ -206,6 +208,24 @@ void enableRawMode()
     raw.c_lflag &= ~(ECHO | ICANON | ISIG);
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
+bool checkDir(string file)
+{
+    struct stat fileInfo;
+    if (stat((const char *)file.c_str(), &fileInfo) != 0)
+    { // Use stat() to get the info
+        std::cerr << "Error: " << strerror(errno) << '\n';
+        return (EXIT_FAILURE);
+    }
+    if ((fileInfo.st_mode & S_IFMT) == S_IFDIR)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
 void normalMode()
 {
 
@@ -214,7 +234,6 @@ void normalMode()
     files = getAndSortFiles();
     vector<vector<string>> filesWithdetails;
     getDetailsOfFiles(files, filesWithdetails); // this gets the details of all giles
-    enableRawMode();
     vector<unsigned short> winSize = getWindowSize();
     int cursor = 1; // to maintain position ehich is diplayed on the screen
     bool overflow = false;
@@ -227,16 +246,16 @@ void normalMode()
         capacity = filesWithdetails.size();
         x = x + 1;
         y = y + capacity;
-        if (y*offset > winSize[0]) 
+        if (y * offset > winSize[0])
         {
-            y = winSize[0]/ offset;
+            y = winSize[0] / offset;
             overflow = true;
-            capacity = y*offset;
+            capacity = y * offset;
         }
-        else{
-            capacity = capacity*offset;
+        else
+        {
+            capacity = capacity * offset;
         }
-       
     }
     else
     {
@@ -244,19 +263,21 @@ void normalMode()
         x = x + 1;
         y = y + capacity;
         overflow = true;
-        if (y*offset > winSize[0])
+        if (y * offset > winSize[0])
         {
-            y = winSize[0]/ offset;
+            y = winSize[0] / offset;
             overflow = true;
-            capacity = y*offset;
+            capacity = y * offset;
         }
     }
     cout << "\033[2J\033[1;1H"; // clearing the screen
     printDetails(x - 1, y - 1, filesWithdetails);
     printf("\033[%d;%dH", 0, 0); // curesor at position (1,1)
+    int dupcur = 0;
     while (true)
     {
         char inp[3];
+        dupcur = cursor;
         memset(inp, 0, 3 * sizeof(inp[0]));
         fflush(0);
         if (filesWithdetails.size() > winSize[0])
@@ -307,6 +328,55 @@ void normalMode()
             printDetails(x - 1, y - 1, filesWithdetails);
             gotoxy(cursor, 1);
         }
+        else if (inp[0] == 10 && dupcur >= 1 && dupcur <= capacity)
+        {
+
+            int index;
+            // cout << capacity<<" "<<cursor<<" "<<offset<<" "<<index;
+            if (offset == 1)
+            {
+                index = cursor - 1;
+                if (checkDir(files[index]))
+                {
+                    // normalMode();
+                }
+                else
+                {
+                    pid_t pid = fork();
+                    if (pid == 0)
+                    {
+                        cout << files[index];
+                        execl("/usr/bin/xdg-open", "xdg-open", (const char *)files[index].c_str(), (char *)0);
+                        exit(1);
+                    }
+                }
+            }
+            else if (offset > 1 && cursor % offset == 1)
+            {
+                index = x - 1 + (cursor / offset);
+                if (checkDir(files[index]))
+                {
+                    // normalMode();
+                }
+                else
+                {
+                    pid_t pid = fork();
+                    if (pid == 0)
+                    {
+                        execl("/usr/bin/xdg-open", "xdg-open", (const char *)files[index].c_str(), (char *)0);
+                        exit(1);
+                    }
+                    // else
+                    // {
+                    //     int *c;
+                    //     wait(c);
+                    // }
+                }
+            }
+            else
+                continue;
+            dupcur++;
+        }
         else if (inp[0] == 'q')
         {
             disableRawMode();
@@ -317,5 +387,6 @@ void normalMode()
 }
 int main()
 {
+    enableRawMode();
     normalMode();
 }
