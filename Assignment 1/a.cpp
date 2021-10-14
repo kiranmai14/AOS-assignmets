@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <math.h>
+#include <termios.h>
 using namespace std;
 
 // to get the current working directory
@@ -175,28 +176,73 @@ string formatDisplay(string s)
     if (s.size() > 13)
     {
         s1 = s.substr(0, 12);
-        s1 = s1 + "...";
+        s1 = s1 + "...\0";
         return s1;
     }
     return s;
 }
-int main()
+void printDetails(int f, int l, vector<vector<string>> file)
 {
+    for (int i = f; i <= l; i++)
+    {
+        cout << left << setw(23) << formatDisplay(file[i][0]);
+        cout << left << setw(20) << file[i][1];
+        cout << left << setw(20) << formatDisplay(file[i][2]);
+        cout << left << setw(20) << formatDisplay(file[i][3]);
+        cout << left << setw(18) << file[i][4];
+        cout << left << setw(24) << file[i][5];
+        cout<<"x";
+    }
+}
+struct termios orig_termios;
+void die(const char *s)
+{
+    perror(s);
+    exit(1);
+}
+void disableRawMode()
+{
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1)
+        die("tcsetattr");
+}
+void enableRawMode()
+{
+    if (tcgetattr(STDIN_FILENO, &orig_termios) == -1)
+        die("tcgetattr");
+    struct termios raw = orig_termios;
+    raw.c_iflag &= ~(IXON);
+    raw.c_lflag &= ~(ECHO | ICANON | ISIG);
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+}
+void normalMode()
+{
+
     char *wd = get_cwd();
     vector<string> files; // directory files names are stored in this variable
     files = getAndSortFiles();
     vector<vector<string>> filesWithdetails;
     getDetailsOfFiles(files, filesWithdetails);
-    for (auto file : filesWithdetails)
-    {
-        cout << left << setw(23) << formatDisplay(file[0]);
-        cout << left << setw(20) << file[1];
-        cout << left << setw(20) << formatDisplay(file[2]);
-        cout << left << setw(20) << formatDisplay(file[3]);
-        cout << left << setw(18) << file[4];
-        cout << left << setw(24) << file[5];
-    }
+    cout << "\033[2J\033[1;1H";
+    printDetails(0, 8, filesWithdetails);
+    enableRawMode();
     vector<unsigned short> winSize = getWindowSize();
     cout << winSize[1] << " ";
-    cout << getOffset(winSize[1]) << endl;
+    cout << getOffset(winSize[1]);
+    char c;
+    while (true)
+    {
+       
+        printf("\033[%d;%dH", 0, 0);
+        fflush(0);
+        if (read(STDIN_FILENO, &c, 1) == 1 && c == 'q')
+        {
+            disableRawMode();
+            cout << "\033[2J\033[1;1H";
+            break;
+        }
+    }
+}
+int main()
+{
+    normalMode();
 }

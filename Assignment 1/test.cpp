@@ -22,11 +22,11 @@
 // // //         modeval[7] = (perm & S_IWOTH) ? 'w' : '-';
 // // //         modeval[8] = (perm & S_IXOTH) ? 'x' : '-';
 // // //         modeval[9] = '\0';
-// // //         return modeval;     
+// // //         return modeval;
 // // //     }
 // // //     else{
 // // //         return strerror(errno);
-// // //     }   
+// // //     }
 // // // }
 // // // int main(int argc, char **argv)
 // // // {
@@ -89,7 +89,7 @@
 // // // //     return d;
 // // // // }
 
-// // // // string convertSize(size_t size) {              
+// // // // string convertSize(size_t size) {
 // // // //     static const char *SIZES[] = { "B", "KB", "MB", "GB" };
 // // // //     int div = 0;
 // // // //     size_t rem = 0;
@@ -126,79 +126,102 @@
 // // // //     cout << getFileSize("/home/kiranmai/IIIT/AOS/Assignment 1/a.cpp") << endl;
 // // // //     return 0;
 // // // // }
-// #include <iostream>
-// #include <stdio.h>
-// #include <termios.h>
+#include <iostream>
+#include <stdio.h>
+#include <termios.h>
 // // #define STDIN_FILENO 0
 // // #define getch() _getch()
-// using namespace std;
+using namespace std;
 // int main(int argc, char **argv)
 // {
-// // int main()
-// // {
-// // // Black magic to prevent Linux from buffering keystrokes.
-// //     const int KEY_ARROW_CHAR1 = 224;
-// // const int KEY_ARROW_UP = 72;
-// // const int KEY_ARROW_DOWN = 80;
-// // const int KEY_ARROW_LEFT = 75;
-// // const int KEY_ARROW_RIGHT = 77;
+int main()
+{
+  // Black magic to prevent Linux from buffering keystrokes.
+  const int KEY_ARROW_CHAR1 = 224;
+  const int KEY_ARROW_UP = 72;
+  const int KEY_ARROW_DOWN = 80;
+  const int KEY_ARROW_LEFT = 75;
+  const int KEY_ARROW_RIGHT = 77;
 
-// // unsigned char ch1 = getc(stdin);
-// // if (ch1 == KEY_ARROW_CHAR1)
-// // {
-// //     // Some Arrow key was pressed, determine which?
-// //     unsigned char ch2 = getc(stdin);
-// //     switch (ch2) 
-// //     {
-// //     case KEY_ARROW_UP:
-// //         // code for arrow up
-// //         cout << "KEY_ARROW_UP" << endl;
-// //         break;
-// //     case KEY_ARROW_DOWN:
-// //         // code for arrow down
-// //         cout << "KEY_ARROW_DOWN" << endl;
-// //         break;
-// //     case KEY_ARROW_LEFT:
-// //         // code for arrow right
-// //         cout << "KEY_ARROW_LEFT" << endl;
-// //         break;
-// //     case KEY_ARROW_RIGHT:
-// //         // code for arrow left
-// //         cout << "KEY_ARROW_RIGHT" << endl;
-// //         break;
-// //     }
-// // }
-// // else
-// // {
-// //     switch (ch1)
-// //     {
-// //         // Process other key presses if required.
-// //     }
-// // }
-// // char c;
-// // int n =3;
-// // for (int i=0; i<n; i++){
-// //     c = getc(stdin);
-// //     // fflushstdin ();
-// //     if (c == '\n'){
-// //         //do som;ething
-// //         cout<<"x";
-// //     }
-// // }
+  // unsigned char ch1 = getc(stdin);
+  // if (ch1 == KEY_ARROW_CHAR1)
+  // {
+    // Some Arrow key was pressed, determine which?
+    unsigned char ch2 = getc(stdin);
+    switch (ch2)
+    {
+    case KEY_ARROW_UP:
+      // code for arrow up
+      cout << "KEY_ARROW_UP" << endl;
+      break;
+    case KEY_ARROW_DOWN:
+      // code for arrow down
+      cout << "KEY_ARROW_DOWN" << endl;
+      break;
+    case KEY_ARROW_LEFT:
+      // code for arrow right
+      cout << "KEY_ARROW_LEFT" << endl;
+      break;
+    case KEY_ARROW_RIGHT:
+      // code for arrow left
+      cout << "KEY_ARROW_RIGHT" << endl;
+      break;
+    }
+  // }
+  // else
+  // {
+  //   switch (ch1)
+  //   {
+  //     // Process other key presses if required.
+  //   }
+  // }
+}
 // int pid = fork();
 // if (pid == 0) {
 //   execl("/usr/bin/xdg-open", "xdg-open", argv[1], (char *)0);
 //   exit(1);
-  #include <sys/ioctl.h>
-#include <stdio.h>
+//   #include <sys/ioctl.h>
+// #include <stdio.h>
 
-int main (void)
-{
-    struct winsize w;
-    ioctl(0, TIOCGWINSZ, &w);
+// int main (void)
+// {
+//     struct winsize w;
+//     ioctl(0, TIOCGWINSZ, &w);
 
-    printf ("lines %d\n", w.ws_row);
-    printf ("columns %d\n", w.ws_col);
-    return 0;
+//     printf ("lines %d\n", w.ws_row);
+//     printf ("columns %d\n", w.ws_col);
+//     return 0;
 
-}
+// }
+// #include <iostream>
+// #include <termios.h>
+// #define STDIN_FILENO 0
+// using namespace std;
+// int main()
+// {
+// // Black magic to prevent Linux from buffering keystrokes.
+//     // struct termios t;
+//     // tcgetattr(STDIN_FILENO, &t);
+//     // t.c_lflag &= ~ICANON;
+//     // tcsetattr(STDIN_FILENO, TCSANOW, &t);
+
+// // Once the buffering is turned off, the rest is simple.
+//     cout << "Enter a character: ";
+//     struct termios t;
+//     tcgetattr(STDIN_FILENO, &t);
+//     t.c_lflag &= ~ICANON;
+//     tcsetattr(STDIN_FILENO, TCSANOW, &t);
+//     char c,d,e;
+//     cin >> c;
+//     cin >> d;
+//     cin >> e;
+//     cout << "\nYour character was ";
+// // Using 3 char type, Cause up down right left consist with 3 character
+//     if ((c==27)&&(d=91)) {
+//         if (e==65) { cout << "UP";}
+//         if (e==66) { cout << "DOWN";}
+//         if (e==67) { cout << "RIGHT";}
+//         if (e==68) { cout << "LEFT";}
+//     }
+//     return 0;
+// }
