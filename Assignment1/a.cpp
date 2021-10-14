@@ -16,13 +16,13 @@ char *get_cwd()
     return tmp;
 }
 //  get the list of directories and sort the list of directories
-vector<string> getAndSortFiles()
+vector<string> getAndSortFiles(char *wd)
 {
     vector<string> files;
     DIR *dir;
     struct dirent **diread;
     int n, i;
-    n = scandir(".", &diread, 0, versionsort);
+    n = scandir(wd, &diread, 0, versionsort);
     if (n < 0)
         perror("scandir");
     else
@@ -225,20 +225,20 @@ bool checkDir(string file)
         return false;
     }
 }
-
-void normalMode()
+stack<string> lef, rig;
+bool normalMode(string wd)
 {
 
-    char *wd = get_cwd();
+    // char *wd = get_cwd();
     vector<string> files; // directory files names are stored in this variable
-    files = getAndSortFiles();
+    files = getAndSortFiles((char *)wd.c_str());
     vector<vector<string>> filesWithdetails;
     getDetailsOfFiles(files, filesWithdetails); // this gets the details of all giles
     vector<unsigned short> winSize = getWindowSize();
     int cursor = 1; // to maintain position ehich is diplayed on the screen
     bool overflow = false;
     int x = 0, y = 0;
-    int capacity = 0;
+    int capacity = 0; // to track how many lines are occupied
     int offset = getOffset(winSize[1]);
     int dirsize = filesWithdetails.size();
     if (filesWithdetails.size() < winSize[0])
@@ -338,7 +338,43 @@ void normalMode()
                 index = cursor - 1;
                 if (checkDir(files[index]))
                 {
-                    // normalMode();
+                    if (files[index] == ".")
+                        continue;
+                    else if (files[index] == "..")
+                    {
+                        string dum = wd;
+                        int i = 0;
+                        for (i = dum.size() - 1; i >= 0; i--)
+                        {
+                            if (dum[i] == '/')
+                                break;
+                        }
+                        int len = dum.size() - 1 - i;
+                        cout<<wd;
+                        dum.erase(i, len);
+                        rig.push(lef.top());
+                        lef.pop();
+                        lef.push(dum);
+                        cout<<dum;
+                        // if (normalMode(dum))
+                        // {
+                        //     disableRawMode();
+                        //     cout << "\033[2J\033[1;1H";
+                        //     return true;
+                        // }
+                    }
+                    else
+                    {
+                        string dum = wd;
+                        dum = dum + "/" + files[index];
+                        rig.push(dum);
+                        if (normalMode(dum))
+                        {
+                            disableRawMode();
+                            cout << "\033[2J\033[1;1H";
+                            return true;
+                        }
+                    }
                 }
                 else
                 {
@@ -381,12 +417,16 @@ void normalMode()
         {
             disableRawMode();
             cout << "\033[2J\033[1;1H";
+            return true;
             break;
         }
     }
 }
 int main()
 {
+
     enableRawMode();
-    normalMode();
+    char *wd = get_cwd();
+    lef.push(wd);
+    normalMode(wd);
 }
