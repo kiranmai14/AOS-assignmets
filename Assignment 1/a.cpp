@@ -221,11 +221,20 @@ void normalMode()
     int x = 0, y = 0;
     int capacity = 0;
     int offset = getOffset(winSize[1]);
+    int dirsize = filesWithdetails.size();
     if (filesWithdetails.size() < winSize[0])
     {
         capacity = filesWithdetails.size();
         x = x + 1;
         y = y + capacity;
+        if (y*offset > winSize[0])
+        {
+            cout << y << " " << capacity << " " << winSize[0];
+            y = winSize[0]/ offset;
+            overflow = true;
+            capacity = y*offset;
+        }
+       
     }
     else
     {
@@ -233,9 +242,16 @@ void normalMode()
         x = x + 1;
         y = y + capacity;
         overflow = true;
+        if (y*offset > winSize[0])
+        {
+            y = winSize[0]/ offset;
+            overflow = true;
+            capacity = y*offset;
+        }
     }
+    // cout << y << " " << capacity << " " << winSize[0];
     cout << "\033[2J\033[1;1H"; // clearing the screen
-    printDetails(x - 1, (y / offset) - 1, filesWithdetails);
+    printDetails(x - 1, y - 1, filesWithdetails);
     printf("\033[%d;%dH", 0, 0); // curesor at position (1,1)
     while (true)
     {
@@ -257,7 +273,7 @@ void normalMode()
             else
             {
                 cout << "\033[2J\033[1;1H";
-                printDetails(x - 1, (y / offset) - 1, filesWithdetails);
+                printDetails(x - 1, y - 1, filesWithdetails);
                 cursor--;
                 gotoxy(cursor, 1);
             }
@@ -269,7 +285,7 @@ void normalMode()
             else
             {
                 cout << "\033[2J\033[1;1H";
-                printDetails(x - 1, (y / offset) - 1, filesWithdetails);
+                printDetails(x - 1, y - 1, filesWithdetails);
                 cursor++;
                 gotoxy(cursor, 1);
             }
@@ -279,7 +295,7 @@ void normalMode()
             x++;
             y++;
             cout << "\033[2J\033[1;1H";
-            printDetails(x - 1, (y / offset) - 1, filesWithdetails);
+            printDetails(x - 1, y - 1, filesWithdetails);
             gotoxy(cursor, 1);
         }
         else if (inp[0] == 'k' && overflow && cursor == 1 && x > 1)
@@ -287,7 +303,7 @@ void normalMode()
             x--;
             y--;
             cout << "\033[2J\033[1;1H";
-            printDetails(x - 1, (y / offset) - 1, filesWithdetails);
+            printDetails(x - 1, y - 1, filesWithdetails);
             gotoxy(cursor, 1);
         }
         else if (inp[0] == 'q')
