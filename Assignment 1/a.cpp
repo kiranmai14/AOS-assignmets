@@ -13,6 +13,10 @@
 #include <pwd.h>
 #include <grp.h>
 #include <iomanip> //for setw
+#include <sys/ioctl.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <math.h>
 using namespace std;
 
 // to get the current working directory
@@ -152,6 +156,30 @@ bool getDetailsOfFiles(vector<string> files, vector<vector<string>> &filesWithde
     }
     return true;
 }
+vector<unsigned short> getWindowSize()
+{
+    vector<unsigned short> s;
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    s.push_back(w.ws_row);
+    s.push_back(w.ws_col);
+    return s;
+}
+int getOffset(int col)
+{
+    return ceil(125 / (double)col);
+}
+string formatDisplay(string s)
+{
+    string s1;
+    if (s.size() > 13)
+    {
+        s1 = s.substr(0, 12);
+        s1 = s1 + "...";
+        return s1;
+    }
+    return s;
+}
 int main()
 {
     char *wd = get_cwd();
@@ -159,23 +187,16 @@ int main()
     files = getAndSortFiles();
     vector<vector<string>> filesWithdetails;
     getDetailsOfFiles(files, filesWithdetails);
-    // cout<<"\t"<<"1";
     for (auto file : filesWithdetails)
     {
-            if(file[0].size() > 13){
-                string s1 = file[0].substr(0,12);
-                s1 = s1+"...";
-                cout << left <<setw(20)<<s1;
-
-            }
-            else{
-                cout << left <<setw(20)<<file[0];
-            }
-            cout << left <<setw(15)<<file[1];
-            cout << left <<setw(15)<<file[2];
-            cout << left <<setw(15)<<file[3];
-            cout << left <<setw(18)<<file[4];
-            cout << left <<setw(24)<<file[5];
+        cout << left << setw(23) << formatDisplay(file[0]);
+        cout << left << setw(20) << file[1];
+        cout << left << setw(20) << formatDisplay(file[2]);
+        cout << left << setw(20) << formatDisplay(file[3]);
+        cout << left << setw(18) << file[4];
+        cout << left << setw(24) << file[5];
     }
-    return 0;
+    vector<unsigned short> winSize = getWindowSize();
+    cout << winSize[1] << " ";
+    cout << getOffset(winSize[1]) << endl;
 }
