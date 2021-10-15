@@ -251,7 +251,7 @@ bool normalMode(string wd)
 {
 
     // char *wd = get_cwd();
-    // cout << cwd << " ";
+
     vector<string> files; // directory files names are stored in this variable
     files = getAndSortFiles((char *)wd.c_str());
     vector<vector<string>> filesWithdetails;
