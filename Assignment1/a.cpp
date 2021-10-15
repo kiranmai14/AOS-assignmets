@@ -7,6 +7,8 @@
 #define KEY_RIGHT 77
 #define gotoxy(x, y) printf("\033[%d;%dH", (x), (y))
 using namespace std;
+char root[4096];
+char cwd[4096];
 
 // to get the current working directory
 char *get_cwd()
@@ -24,7 +26,11 @@ vector<string> getAndSortFiles(char *wd)
     int n, i;
     n = scandir(wd, &diread, 0, versionsort);
     if (n < 0)
+    {
+        cout << "line 30";
         perror("scandir");
+    }
+
     else
     {
         for (i = 0; i < n; ++i)
@@ -114,6 +120,7 @@ bool getFileDetails(string file)
     }
     else
     {
+
         vect.push_back(file);
         vect.push_back(convertSize(fileInfo.st_size));
         vect.push_back(getUserId(fileInfo.st_uid));
@@ -128,14 +135,27 @@ bool getDetailsOfFiles(vector<string> files, vector<vector<string>> &filesWithde
     struct stat fileInfo;
     for (int i = 0; i < files.size(); i++)
     {
-        if (stat((const char *)files[i].c_str(), &fileInfo) != 0) // Use stat() to get the info
+        char *relPath = (char *)files[i].c_str();
+        char *absPath = new char[256];
+        if ((strcmp(root, cwd) > 0) || (strcmp(root, cwd) < 0))
         {
+            strcpy(absPath, cwd);
+            strcat(absPath, "/");
+        }
+        else
+        {
+            strcpy(absPath, relPath);
+        }
+        if (stat(absPath, &fileInfo) != 0) // Use stat() to get the info
+        {
+            cout << "line 151";
             std::cerr << "Error: " << strerror(errno) << '\n';
             return (EXIT_FAILURE);
         }
-        string fileName = files[i];
+        //  cout<<files[i]<<" ";
+        // string fileName = files[i];
         vector<string> vect;
-        vect.push_back(fileName);
+        vect.push_back(relPath);
         vect.push_back(convertSize(fileInfo.st_size));
         vect.push_back(getUserId(fileInfo.st_uid));
         vect.push_back(getGroupId(fileInfo.st_gid));
@@ -213,6 +233,7 @@ bool checkDir(string file)
     struct stat fileInfo;
     if (stat((const char *)file.c_str(), &fileInfo) != 0)
     { // Use stat() to get the info
+        cout << "line 30";
         std::cerr << "Error: " << strerror(errno) << '\n';
         return (EXIT_FAILURE);
     }
@@ -336,54 +357,57 @@ bool normalMode(string wd)
             if (offset == 1)
             {
                 index = cursor - 1;
-                if (checkDir(files[index]))
+                cout << index << " ";
+                if (files[index] == ".")
+                    continue;
+                else if (files[index] == "..")
                 {
-                    if (files[index] == ".")
-                        continue;
-                    else if (files[index] == "..")
+                    string absPath = wd;
+                    int i = 0;
+                    for (i = absPath.size() - 1; i >= 0; i--)
                     {
-                        string dum = wd;
-                        int i = 0;
-                        for (i = dum.size() - 1; i >= 0; i--)
-                        {
-                            if (dum[i] == '/')
-                                break;
-                        }
-                        int len = dum.size() - 1 - i;
-                        cout<<wd;
-                        dum.erase(i, len);
-                        rig.push(lef.top());
-                        lef.pop();
-                        lef.push(dum);
-                        cout<<dum;
-                        // if (normalMode(dum))
-                        // {
-                        //     disableRawMode();
-                        //     cout << "\033[2J\033[1;1H";
-                        //     return true;
-                        // }
+                        if (absPath[i] == '/')
+                            break;
                     }
-                    else
+                    int len = absPath.size() - i;
+                    cout << wd;
+                    absPath.erase(i, len);
+                    rig.push(lef.top());
+                    lef.pop();
+                    lef.push(absPath);
+                    strcpy(cwd, absPath.c_str());
+                    if (normalMode(absPath))
                     {
-                        string dum = wd;
-                        dum = dum + "/" + files[index];
-                        rig.push(dum);
-                        if (normalMode(dum))
+                        disableRawMode();
+                        cout << "\033[2J\033[1;1H";
+                        return true;
+                    }
+                }
+                else
+                {
+                    string absPath = wd;
+                    absPath = absPath + "/" + files[index];
+                    // cout<<absPath<<" ";
+                    if (checkDir(absPath))
+                    {
+                        rig.push(absPath);
+                        strcpy(cwd, absPath.c_str());
+                        if (normalMode(absPath))
                         {
                             disableRawMode();
                             cout << "\033[2J\033[1;1H";
                             return true;
                         }
                     }
-                }
-                else
-                {
-                    pid_t pid = fork();
-                    if (pid == 0)
+                    else
                     {
-                        cout << files[index];
-                        execl("/usr/bin/xdg-open", "xdg-open", (const char *)files[index].c_str(), (char *)0);
-                        exit(1);
+                        pid_t pid = fork();
+                        if (pid == 0)
+                        {
+                            // cout << files[index];
+                            execl("/usr/bin/xdg-open", "xdg-open", (const char *)absPath.c_str(), (char *)0);
+                            exit(1);
+                        }
                     }
                 }
             }
@@ -427,6 +451,8 @@ int main()
 
     enableRawMode();
     char *wd = get_cwd();
+    strcpy(root, wd);
+    strcpy(cwd, root);
     lef.push(wd);
     normalMode(wd);
 }
