@@ -247,6 +247,30 @@ bool checkDir(string file)
     }
 }
 stack<string> lef, rig;
+bool create_file(vector<string> s)
+{
+
+}
+// bool commandMode(int x, int y, vector<vector<string>> filesWithdetails)
+// {
+//     vector<unsigned short> winSize = getWindowSize();
+//     int offset = getOffset(winSize[1]);
+//     cout << "\033[2J\033[1;1H"; // clearing the screen
+//     printf("\033[%d;%dH", winSize[0] - 1, 0);
+//     cout << "----COMMAND MODE----";
+//     printf("\033[%d;%dH", 0, 0);
+//     printDetails(x - 1, y - 1, filesWithdetails);
+//     printf("\033[%d;%dH", winSize[0], 0);
+//     char inp[3];
+//     // while(true)
+//     // {
+
+//     // }
+//     // if (read(STDIN_FILENO, &inp, 3) == 0)
+//     // {
+//     //     continue;
+//     // }
+// }
 bool normalMode(string wd)
 {
 
@@ -520,6 +544,11 @@ bool normalMode(string wd)
             cout << "\033[2J\033[1;1H";
             return true;
             break;
+        }
+        else if (inp[0] == ':')
+        {
+            // disableRawMode();
+            // commandMode(x, y, filesWithdetails);
         }
     }
 }
