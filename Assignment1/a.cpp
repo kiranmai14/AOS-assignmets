@@ -251,6 +251,7 @@ bool normalMode(string wd)
 {
 
     // char *wd = get_cwd();
+    // cout << cwd << " ";
     vector<string> files; // directory files names are stored in this variable
     files = getAndSortFiles((char *)wd.c_str());
     vector<vector<string>> filesWithdetails;
@@ -262,6 +263,7 @@ bool normalMode(string wd)
     int capacity = 0; // to track how many lines are occupied
     int offset = getOffset(winSize[1]);
     int dirsize = filesWithdetails.size();
+    winSize[0] = winSize[0] - 1;
     if (filesWithdetails.size() < winSize[0])
     {
         capacity = filesWithdetails.size();
@@ -292,6 +294,9 @@ bool normalMode(string wd)
         }
     }
     cout << "\033[2J\033[1;1H"; // clearing the screen
+    printf("\033[%d;%dH", winSize[0] + 1, 0);
+    cout << "----NORMAL MODE----";
+    printf("\033[%d;%dH", 0, 0);
     printDetails(x - 1, y - 1, filesWithdetails);
     printf("\033[%d;%dH", 0, 0); // curesor at position (1,1)
     int dupcur = 0;
@@ -316,7 +321,11 @@ bool normalMode(string wd)
             else
             {
                 cout << "\033[2J\033[1;1H";
+                printf("\033[%d;%dH", winSize[0] + 1, 0);
+                cout << "----NORMAL MODE----";
+                printf("\033[%d;%dH", 0, 0);
                 printDetails(x - 1, y - 1, filesWithdetails);
+                printf("\033[%d;%dH", 0, 0);
                 cursor--;
                 gotoxy(cursor, 1);
             }
@@ -328,7 +337,11 @@ bool normalMode(string wd)
             else
             {
                 cout << "\033[2J\033[1;1H";
+                printf("\033[%d;%dH", winSize[0] + 1, 0);
+                cout << "----NORMAL MODE----";
+                printf("\033[%d;%dH", 0, 0);
                 printDetails(x - 1, y - 1, filesWithdetails);
+                printf("\033[%d;%dH", 0, 0);
                 cursor++;
                 gotoxy(cursor, 1);
             }
@@ -338,7 +351,11 @@ bool normalMode(string wd)
             x++;
             y++;
             cout << "\033[2J\033[1;1H";
+            printf("\033[%d;%dH", winSize[0] + 1, 0);
+            cout << "----NORMAL MODE----";
+            printf("\033[%d;%dH", 0, 0);
             printDetails(x - 1, y - 1, filesWithdetails);
+            printf("\033[%d;%dH", 0, 0);
             gotoxy(cursor, 1);
         }
         else if (inp[0] == 'k' && overflow && cursor == 1 && x > 1)
@@ -346,7 +363,11 @@ bool normalMode(string wd)
             x--;
             y--;
             cout << "\033[2J\033[1;1H";
+            printf("\033[%d;%dH", winSize[0] + 1, 0);
+            cout << "----NORMAL MODE----";
+            printf("\033[%d;%dH", 0, 0);
             printDetails(x - 1, y - 1, filesWithdetails);
+            printf("\033[%d;%dH", 0, 0);
             gotoxy(cursor, 1);
         }
         else if (inp[0] == 10 && dupcur >= 1 && dupcur <= capacity)
@@ -375,11 +396,11 @@ bool normalMode(string wd)
                         break;
                 }
                 int len = absPath.size() - i;
-                cout << wd;
+                // cout << wd;
                 absPath.erase(i, len);
-                rig.push(lef.top());
-                lef.pop();
-                lef.push(absPath);
+                // rig.push(lef.top());
+                // lef.pop();
+                rig.push(absPath);
                 strcpy(cwd, absPath.c_str());
                 if (normalMode(absPath))
                 {
@@ -418,6 +439,81 @@ bool normalMode(string wd)
             }
             dupcur++;
         }
+        else if (inp[2] == 'C') // right arrow
+        {
+            if (lef.empty() || lef.size() <= 1)
+                continue;
+            else
+            {
+                // rig.push(lef.top());
+                rig.push(lef.top());
+                lef.pop();
+                char *pathtoright = (char *)lef.top().c_str();
+                strcpy(cwd, pathtoright);
+                cout << pathtoright << " ";
+                if (normalMode(pathtoright))
+                {
+                    disableRawMode();
+                    cout << "\033[2J\033[1;1H";
+                    return true;
+                }
+            }
+        }
+        else if (inp[2] == 'D') // left arrow
+        {
+            if (rig.empty() || rig.size() <= 1)
+                continue;
+            else
+            {
+                // rig.push(lef.top());
+                lef.push(rig.top());
+                rig.pop();
+                char *pathtoright = (char *)rig.top().c_str();
+                cout << pathtoright << " ";
+                strcpy(cwd, pathtoright);
+                if (normalMode(pathtoright))
+                {
+                    disableRawMode();
+                    cout << "\033[2J\033[1;1H";
+                    return true;
+                }
+            }
+        }
+        else if (inp[0] == 'h')
+        {
+            rig.push(root);
+            strcpy(cwd, (char *)root);
+            if (normalMode(cwd))
+            {
+                disableRawMode();
+                cout << "\033[2J\033[1;1H";
+                return true;
+            }
+        }
+        else if (inp[0] == 127)
+        {
+
+            string absPath = wd;
+            int i = 0;
+            for (i = absPath.size() - 1; i >= 0; i--)
+            {
+                if (absPath[i] == '/')
+                    break;
+            }
+            int len = absPath.size() - i;
+            // cout << wd;
+            absPath.erase(i, len);
+            // rig.push(lef.top());
+            // lef.pop();
+            rig.push(absPath);
+            strcpy(cwd, absPath.c_str());
+            if (normalMode(absPath))
+            {
+                disableRawMode();
+                cout << "\033[2J\033[1;1H";
+                return true;
+            }
+        }
         else if (inp[0] == 'q')
         {
             disableRawMode();
@@ -435,5 +531,6 @@ int main()
     strcpy(root, wd);
     strcpy(cwd, root);
     lef.push(wd);
+    rig.push(wd);
     normalMode(wd);
 }
