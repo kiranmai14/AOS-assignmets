@@ -468,4 +468,7 @@ int main()
     strcpy(cwd,root);
     lef.push(wd);
     normalMode(wd);
+     printf("\033[%d;%dH", winSize[0], 0);
+    cout << "----NORMAL MODE----";
+    printf("\033[%d;%dH", 0, 0);
 }
