@@ -353,28 +353,50 @@ bool normalMode(string wd)
         {
 
             int index;
-            // cout << capacity<<" "<<cursor<<" "<<offset<<" "<<index;
             if (offset == 1)
             {
                 index = cursor - 1;
-                cout << index << " ";
-                if (files[index] == ".")
-                    continue;
-                else if (files[index] == "..")
+            }
+            else if (offset > 1 && cursor % offset == 1)
+            {
+                index = x - 1 + (cursor / offset);
+            }
+            else
+                continue;
+            if (files[index] == ".")
+                continue;
+            else if (files[index] == "..")
+            {
+                string absPath = wd;
+                int i = 0;
+                for (i = absPath.size() - 1; i >= 0; i--)
                 {
-                    string absPath = wd;
-                    int i = 0;
-                    for (i = absPath.size() - 1; i >= 0; i--)
-                    {
-                        if (absPath[i] == '/')
-                            break;
-                    }
-                    int len = absPath.size() - i;
-                    cout << wd;
-                    absPath.erase(i, len);
-                    rig.push(lef.top());
-                    lef.pop();
-                    lef.push(absPath);
+                    if (absPath[i] == '/')
+                        break;
+                }
+                int len = absPath.size() - i;
+                cout << wd;
+                absPath.erase(i, len);
+                rig.push(lef.top());
+                lef.pop();
+                lef.push(absPath);
+                strcpy(cwd, absPath.c_str());
+                if (normalMode(absPath))
+                {
+                    disableRawMode();
+                    cout << "\033[2J\033[1;1H";
+                    return true;
+                }
+            }
+            else
+            {
+                string absPath = wd;
+                absPath = absPath + "/" + files[index];
+                cout << absPath << " ";
+                if (checkDir(absPath))
+                {
+
+                    rig.push(absPath);
                     strcpy(cwd, absPath.c_str());
                     if (normalMode(absPath))
                     {
@@ -385,56 +407,15 @@ bool normalMode(string wd)
                 }
                 else
                 {
-                    string absPath = wd;
-                    absPath = absPath + "/" + files[index];
-                    // cout<<absPath<<" ";
-                    if (checkDir(absPath))
-                    {
-                        rig.push(absPath);
-                        strcpy(cwd, absPath.c_str());
-                        if (normalMode(absPath))
-                        {
-                            disableRawMode();
-                            cout << "\033[2J\033[1;1H";
-                            return true;
-                        }
-                    }
-                    else
-                    {
-                        pid_t pid = fork();
-                        if (pid == 0)
-                        {
-                            // cout << files[index];
-                            execl("/usr/bin/xdg-open", "xdg-open", (const char *)absPath.c_str(), (char *)0);
-                            exit(1);
-                        }
-                    }
-                }
-            }
-            else if (offset > 1 && cursor % offset == 1)
-            {
-                index = x - 1 + (cursor / offset);
-                if (checkDir(files[index]))
-                {
-                    // normalMode();
-                }
-                else
-                {
                     pid_t pid = fork();
                     if (pid == 0)
                     {
-                        execl("/usr/bin/xdg-open", "xdg-open", (const char *)files[index].c_str(), (char *)0);
+                        // cout << files[index];
+                        execl("/usr/bin/xdg-open", "xdg-open", (const char *)absPath.c_str(), (char *)0);
                         exit(1);
                     }
-                    // else
-                    // {
-                    //     int *c;
-                    //     wait(c);
-                    // }
                 }
             }
-            else
-                continue;
             dupcur++;
         }
         else if (inp[0] == 'q')
