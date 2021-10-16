@@ -162,6 +162,11 @@ void removeFileandDir(string path)
 {
     DIR *dir;
     struct dirent *diread;
+    if(!checkDir(path))
+    {
+        remove(path.c_str());
+        return;
+    }
     if ((dir = opendir(path.c_str())) != nullptr)
     {
         while ((diread = readdir(dir)) != nullptr)
@@ -184,15 +189,16 @@ void removeFileandDir(string path)
             {
                 cout << "going to" <<" "<<diread->d_name << endl;
                 removeFileandDir(nextD);
-                remove(nextD.c_str());
             }
         }
         closedir(dir);
+        remove(path.c_str());
     }
     else
     {
         perror("opendir");
     }
+    
 }
 
 void commandMode()
@@ -229,7 +235,7 @@ void commandMode()
         // cout << path;
         removeFileandDir(path);
         cout<<"removing finally"<<endl;
-        remove(path.c_str());
+        
     }
 }
 
