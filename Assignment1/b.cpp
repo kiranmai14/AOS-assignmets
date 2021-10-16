@@ -214,14 +214,15 @@ void copyfiles(vector<string> files)
     for (int i = 1; i < files.size() - 1; i++)
     {
         string SfilePath = preProcess(files[i]);
-        for (i = SfilePath.size() - 1; i >= 0; i--)
+        int j=0;
+        for (j = SfilePath.size() - 1; j >= 0; j--)
         {
-            if (SfilePath[i] == '/')
+            if (SfilePath[j] == '/')
                 break;
         }
-        int len = files[i].size() - i - 1;
-        string DfilePath = desPath + "/" + SfilePath.substr(i + 1, len);
-        cout << "filenewpath " << DfilePath << endl;
+        int len = files[j].size() - j - 1;
+        string DfilePath = desPath + "/" + SfilePath.substr(j + 1, len);
+        cout << "filenewpath " <<" "<<i<<" "<< DfilePath << endl;
         int source = open(SfilePath.c_str(), O_RDONLY, 0);
         int dest = open(DfilePath.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
         struct stat stat_source;
@@ -231,6 +232,14 @@ void copyfiles(vector<string> files)
         chown(DfilePath.c_str(), stat_source.st_uid, stat_source.st_gid);
         close(source);
         close(dest);
+    }
+}
+void moveFiles(vector<string> files)
+{
+    copyfiles(files);
+    for (int i = 1; i < files.size() - 1; i++)
+    {
+        removeFileandDir(files[i]);
     }
 }
 void commandMode()
@@ -278,6 +287,10 @@ void commandMode()
     else if (cmd[0] == "cp")
     {
         copyfiles(cmd);
+    }
+    else if (cmd[0] == "mv")
+    {
+        moveFiles(cmd);
     }
 }
 
