@@ -121,15 +121,21 @@ void renameFile(vector<string> cmd)
 }
 bool search(string cur, string filetoSearch)
 {
+    // cout<<
     DIR *dir;
     struct dirent *diread;
     if ((dir = opendir(cur.c_str())) != nullptr)
     {
         while ((diread = readdir(dir)) != nullptr)
         {
-            string nextD = cur + "/" + diread->d_name;
-            if (diread->d_name == "." || diread->d_name == "..")
+            
+            if (!(strcmp(diread->d_name, ".")) || !(strcmp(diread->d_name, "..")))
+            {
+                //  cout << "inside"
+                    //  << " " << diread->d_name << endl;
                 continue;
+            }
+            string nextD = cur + "/" + diread->d_name;
             if (!checkDir(nextD))
             {
                 if (diread->d_name == filetoSearch)
@@ -145,8 +151,11 @@ bool search(string cur, string filetoSearch)
                     closedir(dir);
                     return true;
                 }
-                closedir(dir);
-                return search(nextD, filetoSearch);
+                // cout<<"going to "<<nextD<<endl;
+                // closedir(dir);
+                if(search(nextD, filetoSearch))
+                    return true;
+
             }
         }
         closedir(dir);
