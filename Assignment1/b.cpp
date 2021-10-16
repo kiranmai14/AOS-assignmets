@@ -162,7 +162,7 @@ void removeFileandDir(string path)
 {
     DIR *dir;
     struct dirent *diread;
-    if(!checkDir(path))
+    if (!checkDir(path))
     {
         remove(path.c_str());
         return;
@@ -172,22 +172,24 @@ void removeFileandDir(string path)
         while ((diread = readdir(dir)) != nullptr)
         {
             string nextD = path + "/" + diread->d_name;
-            if(!(strcmp(diread->d_name, "." ))|| !(strcmp(diread->d_name, ".." )))
+            if (!(strcmp(diread->d_name, ".")) || !(strcmp(diread->d_name, "..")))
             {
-                cout << "inside" <<" "<<diread->d_name<< endl;
+                cout << "inside"
+                     << " " << diread->d_name << endl;
                 continue;
             }
-                
+
             if (!checkDir(nextD))
             {
-                cout<<"removing"<<" "<<diread->d_name<<endl;
+                cout << "removing"
+                     << " " << diread->d_name << endl;
                 if (remove(nextD.c_str()) != 0)
                     printf("Error: unable to delete the file");
-                
             }
             else
             {
-                cout << "going to" <<" "<<diread->d_name << endl;
+                cout << "going to"
+                     << " " << diread->d_name << endl;
                 removeFileandDir(nextD);
             }
         }
@@ -198,31 +200,68 @@ void removeFileandDir(string path)
     {
         perror("opendir");
     }
-    
 }
+void copyfiles(vector<string> files)
+{
+    string desPath = preProcess(files[files.size() - 1]);
+    cout << "des: " << desPath << endl;
+    if (!checkDir(desPath))
+    {
+        cout << "Directory does not exists\n";
+        return;
+    }
 
+    for (int i = 1; i < files.size() - 1; i++)
+    {
+        string SfilePath = preProcess(files[i]);
+        for (i = SfilePath.size() - 1; i >= 0; i--)
+        {
+            if (SfilePath[i] == '/')
+                break;
+        }
+        int len = files[i].size() - i - 1;
+        string DfilePath = desPath + "/" + SfilePath.substr(i + 1, len);
+        cout << "filenewpath " << DfilePath << endl;
+        int source = open(SfilePath.c_str(), O_RDONLY, 0);
+        int dest = open(DfilePath.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        struct stat stat_source;
+        fstat(source, &stat_source);
+        sendfile(dest, source, 0, stat_source.st_size);
+        chmod(DfilePath.c_str(), stat_source.st_mode);
+        chown(DfilePath.c_str(), stat_source.st_uid, stat_source.st_gid);
+        close(source);
+        close(dest);
+    }
+}
 void commandMode()
 {
-    vector<string> cmd(3);
-    cin >> cmd[0];
+    vector<string> cmd;
+    string line, word;
+    getline(cin, line);
+    istringstream iss(line);
+    while (iss >> word)
+    {
+        cmd.push_back(word);
+    }
+    // cin >> cmd[0];
     if (cmd[0] == "cf")
     {
-        cin >> cmd[1] >> cmd[2];
+        // cin >> cmd[1] >> cmd[2];
         create_file(cmd);
     }
     else if (cmd[0] == "cd")
     {
-        cin >> cmd[1] >> cmd[2];
+        // cin >> cmd[1] >> cmd[2];
         create_dir(cmd);
     }
     else if (cmd[0] == "ren")
     {
-        cin >> cmd[1] >> cmd[2];
+        // cin >> cmd[1] >> cmd[2];
         renameFile(cmd);
     }
     else if (cmd[0] == "se")
     {
-        cin >> cmd[1];
+        // cin >> cmd[1];
         if (search(get_cwd(), cmd[1]))
             cout << true << endl;
         else
@@ -230,12 +269,15 @@ void commandMode()
     }
     else if (cmd[0] == "de")
     {
-        cin >> cmd[1];
+        // cin >> cmd[1];
         string path = preProcess(cmd[1]);
         // cout << path;
         removeFileandDir(path);
-        cout<<"removing finally"<<endl;
-        
+        cout << "removing finally" << endl;
+    }
+    else if (cmd[0] == "cp")
+    {
+        copyfiles(cmd);
     }
 }
 
