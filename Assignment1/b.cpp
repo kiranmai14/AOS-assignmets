@@ -114,7 +114,7 @@ void renameFile(vector<string> cmd)
 {
     string old = preProcess(cmd[1]);
     string newf = preProcess(cmd[2]);
-    if (!(rename(old.c_str(), newf.c_str())))
+    if ((rename(old.c_str(), newf.c_str())))
     {
         perror("Error");
     }
