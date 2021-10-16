@@ -51,8 +51,8 @@ string preProcess(string path)
         absPath = get_cwd();
         absPath = absPath + "/" + path;
     }
-    cout << "inside"
-         << " " << absPath << endl;
+    // cout << "inside"
+    //      << " " << absPath << endl;
     return absPath;
 }
 void create_file(vector<string> cmd)
@@ -167,16 +167,22 @@ void removeFileandDir(string path)
         while ((diread = readdir(dir)) != nullptr)
         {
             string nextD = path + "/" + diread->d_name;
-            if (diread->d_name == "." || diread->d_name == "..")
+            if(!(strcmp(diread->d_name, "." ))|| !(strcmp(diread->d_name, ".." )))
+            {
+                cout << "inside" <<" "<<diread->d_name<< endl;
                 continue;
+            }
+                
             if (!checkDir(nextD))
             {
-                if (remove(path.c_str()) != 0)
+                cout<<"removing"<<" "<<diread->d_name<<endl;
+                if (remove(nextD.c_str()) != 0)
                     printf("Error: unable to delete the file");
+                
             }
             else
             {
-                closedir(dir);
+                cout << "going to" <<" "<<diread->d_name << endl;
                 removeFileandDir(nextD);
                 remove(nextD.c_str());
             }
@@ -220,8 +226,9 @@ void commandMode()
     {
         cin >> cmd[1];
         string path = preProcess(cmd[1]);
-        cout << path;
+        // cout << path;
         removeFileandDir(path);
+        cout<<"removing finally"<<endl;
         remove(path.c_str());
     }
 }
