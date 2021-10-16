@@ -9,7 +9,15 @@
 using namespace std;
 char root[4096];
 char cwd[4096];
+char home[256];
 
+// to get home of the system
+void getHome()
+{
+    struct passwd *pw = getpwuid(getuid());
+    char *homedir = pw->pw_dir;
+    strcpy(home,homedir);
+}
 // to get the current working directory
 char *get_cwd()
 {
@@ -24,13 +32,13 @@ vector<string> getAndSortFiles(char *wd)
     DIR *dir;
     struct dirent **diread;
     int n, i;
+    // cout<<wd<<" ";
     n = scandir(wd, &diread, 0, versionsort);
     if (n < 0)
     {
         cout << "line 30";
         perror("scandir");
     }
-
     else
     {
         for (i = 0; i < n; ++i)
@@ -414,6 +422,10 @@ bool normalMode(string wd)
             {
                 string absPath = wd;
                 int i = 0;
+                // if(absPath.size()==1 && absPath=="/")
+                // {
+                //     continue;
+                // }
                 for (i = absPath.size() - 1; i >= 0; i--)
                 {
                     if (absPath[i] == '/')
@@ -423,6 +435,7 @@ bool normalMode(string wd)
                 // cout << wd;
                 absPath.erase(i, len);
                 // rig.push(lef.top());
+                cout<<absPath;
                 // lef.pop();
                 rig.push(absPath);
                 strcpy(cwd, absPath.c_str());
@@ -437,7 +450,7 @@ bool normalMode(string wd)
             {
                 string absPath = wd;
                 absPath = absPath + "/" + files[index];
-                cout << absPath << " ";
+                // cout << absPath << " ";
                 if (checkDir(absPath))
                 {
 
@@ -456,8 +469,11 @@ bool normalMode(string wd)
                     if (pid == 0)
                     {
                         // cout << files[index];
-                        execl("/usr/bin/xdg-open", "xdg-open", (const char *)absPath.c_str(), (char *)0);
+                        execl("/usr/bin/vi", "vi", (const char *)absPath.c_str(), (char *)0);
                         exit(1);
+                    }
+                    else{
+                        wait(0);
                     }
                 }
             }
@@ -465,7 +481,7 @@ bool normalMode(string wd)
         }
         else if (inp[2] == 'C') // right arrow
         {
-            if (lef.empty() || lef.size() <= 1)
+            if (lef.empty() || lef.size() <= 2)
                 continue;
             else
             {
@@ -505,6 +521,7 @@ bool normalMode(string wd)
         }
         else if (inp[0] == 'h')
         {
+            // cout<<home;
             rig.push(root);
             strcpy(cwd, (char *)root);
             if (normalMode(cwd))
@@ -557,6 +574,7 @@ int main()
 
     enableRawMode();
     char *wd = get_cwd();
+    getHome();
     strcpy(root, wd);
     strcpy(cwd, root);
     lef.push(wd);

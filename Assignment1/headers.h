@@ -20,3 +20,4 @@
 #include <termios.h>
 #include <stack>
 #include <fcntl.h>
+#include <sys/wait.h> 

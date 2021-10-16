@@ -1,5 +1,29 @@
 #include "headers.h"
 using namespace std;
+bool checkDir(string file)
+{
+    struct stat fileInfo;
+    if (stat((const char *)file.c_str(), &fileInfo) != 0)
+    { // Use stat() to get the info
+      // cout << "line 30";
+      // std::cerr << "Error: " << strerror(errno) << '\n';
+      // return (EXIT_FAILURE);
+    }
+    if ((fileInfo.st_mode & S_IFMT) == S_IFDIR)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+string getHome()
+{
+    char *tmp = (char *)malloc(256 * sizeof(char));
+    getcwd(tmp, 256);
+    return tmp;
+}
 char *get_cwd()
 {
     char *tmp = (char *)malloc(256 * sizeof(char));
@@ -9,73 +33,199 @@ char *get_cwd()
 string preProcess(string path)
 {
     string absPath = "";
-    if (path[0] == '~')
+    if (path[0] == '~') ///\directory from where the application started
     {
-        absPath = path.substr(1, path.size() - 1);
+        absPath = getHome() + path.substr(1, path.size() - 1);
     }
-    else if (path[0] == '.' && path.size() == 1)
-    {
-        absPath = get_cwd();
-    }
-    else if (path[0] == '.' && path.size() >= 1)
+    else if (path == ".") // current directory
     {
         absPath = get_cwd();
-        for (int i = 1; i < path.size(); i++)
-        {
-            absPath = absPath + path[i];
-        }
+        absPath = absPath + path.substr(1, path.size() - 1);
     }
+    else if (path[0] == '/') ///\directory from where the application started
+    {
+        absPath = getHome() + path;
+    }
+    else
+    {
+        absPath = get_cwd();
+        absPath = absPath + "/" + path;
+    }
+    cout << "inside"
+         << " " << absPath << endl;
     return absPath;
 }
 void create_file(vector<string> cmd)
 {
     string filename = cmd[1];
     string abspath = preProcess(cmd[2]);
+    cout << "outside"
+         << " " << abspath << endl;
     filename = abspath + "/" + filename;
-    cout << filename;
+    cout << "Final path"
+         << " " << filename << endl;
+    // cout << filename;
     // cheach if it is a valid path
-    int fd1 = open(filename.c_str(), O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-    if (fd1 < 0)
+    if (checkDir(abspath))
     {
-        perror("c1");
-        exit(1);
-    }
-    printf("created the fd = % d\n", fd1);
+        int fd1 = open(filename.c_str(), O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (fd1 < 0)
+        {
+            perror("c1");
+            exit(1);
+        }
+        printf("created the fd = % d\n", fd1);
 
-    // Using close system Call
-    if (close(fd1) < 0)
-    {
-        perror("c1");
-        exit(1);
+        // Using close system Call
+        if (close(fd1) < 0)
+        {
+            perror("c1");
+            exit(1);
+        }
+        printf("closed the fd.\n");
     }
-    printf("closed the fd.\n");
+    else
+    {
+        cout << "Given destination is not a directory";
+    }
 }
 void create_dir(vector<string> cmd)
 {
     string dirname = cmd[1];
     string abspath = preProcess(cmd[2]);
+    cout << abspath;
     dirname = abspath + "/" + dirname;
-    cout << dirname;
+    // cout << dirname;
     // cheach if it is a valid path
-    if (mkdir(dirname.c_str(), 0755) == -1)
+    if (checkDir(abspath))
     {
-        perror("");
-        return;
+        if (mkdir(dirname.c_str(), 0755) == -1)
+        {
+            perror("");
+            return;
+        }
+    }
+    else
+    {
+        cout << "Given destination is not a directory";
     }
 }
+void renameFile(vector<string> cmd)
+{
+    string old = preProcess(cmd[1]);
+    string newf = preProcess(cmd[2]);
+    if (!(rename(old.c_str(), newf.c_str())))
+    {
+        perror("Error");
+    }
+}
+bool search(string cur, string filetoSearch)
+{
+    DIR *dir;
+    struct dirent *diread;
+    if ((dir = opendir(cur.c_str())) != nullptr)
+    {
+        while ((diread = readdir(dir)) != nullptr)
+        {
+            string nextD = cur + "/" + diread->d_name;
+            if (diread->d_name == "." || diread->d_name == "..")
+                continue;
+            if (!checkDir(nextD))
+            {
+                if (diread->d_name == filetoSearch)
+                {
+                    closedir(dir);
+                    return true;
+                }
+            }
+            else
+            {
+                if (diread->d_name == filetoSearch)
+                {
+                    closedir(dir);
+                    return true;
+                }
+                closedir(dir);
+                return search(nextD, filetoSearch);
+            }
+        }
+        closedir(dir);
+    }
+    else
+    {
+        perror("opendir");
+        return EXIT_FAILURE;
+    }
+    return false;
+}
+void removeFileandDir(string path)
+{
+    DIR *dir;
+    struct dirent *diread;
+    if ((dir = opendir(path.c_str())) != nullptr)
+    {
+        while ((diread = readdir(dir)) != nullptr)
+        {
+            string nextD = path + "/" + diread->d_name;
+            if (diread->d_name == "." || diread->d_name == "..")
+                continue;
+            if (!checkDir(nextD))
+            {
+                if (remove(path.c_str()) != 0)
+                    printf("Error: unable to delete the file");
+            }
+            else
+            {
+                closedir(dir);
+                removeFileandDir(nextD);
+                remove(nextD.c_str());
+            }
+        }
+        closedir(dir);
+    }
+    else
+    {
+        perror("opendir");
+    }
+}
+
 void commandMode()
 {
     vector<string> cmd(3);
-    cin >> cmd[0] >> cmd[1] >> cmd[2];
+    cin >> cmd[0];
     if (cmd[0] == "cf")
     {
+        cin >> cmd[1] >> cmd[2];
         create_file(cmd);
     }
-    else if(cmd[0] == "cd")
+    else if (cmd[0] == "cd")
     {
+        cin >> cmd[1] >> cmd[2];
         create_dir(cmd);
     }
+    else if (cmd[0] == "ren")
+    {
+        cin >> cmd[1] >> cmd[2];
+        renameFile(cmd);
+    }
+    else if (cmd[0] == "se")
+    {
+        cin >> cmd[1];
+        if (search(get_cwd(), cmd[1]))
+            cout << true << endl;
+        else
+            cout << false << endl;
+    }
+    else if (cmd[0] == "de")
+    {
+        cin >> cmd[1];
+        string path = preProcess(cmd[1]);
+        cout << path;
+        removeFileandDir(path);
+        remove(path.c_str());
+    }
 }
+
 int main()
 {
     commandMode();
