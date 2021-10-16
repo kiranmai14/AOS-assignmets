@@ -121,18 +121,17 @@ void renameFile(vector<string> cmd)
 }
 bool search(string cur, string filetoSearch)
 {
-    // cout<<
     DIR *dir;
     struct dirent *diread;
     if ((dir = opendir(cur.c_str())) != nullptr)
     {
         while ((diread = readdir(dir)) != nullptr)
         {
-            
+
             if (!(strcmp(diread->d_name, ".")) || !(strcmp(diread->d_name, "..")))
             {
                 //  cout << "inside"
-                    //  << " " << diread->d_name << endl;
+                //  << " " << diread->d_name << endl;
                 continue;
             }
             string nextD = cur + "/" + diread->d_name;
@@ -153,9 +152,8 @@ bool search(string cur, string filetoSearch)
                 }
                 // cout<<"going to "<<nextD<<endl;
                 // closedir(dir);
-                if(search(nextD, filetoSearch))
+                if (search(nextD, filetoSearch))
                     return true;
-
             }
         }
         closedir(dir);
@@ -210,7 +208,62 @@ void removeFileandDir(string path)
         perror("opendir");
     }
 }
-void copyfiles(vector<string> files)
+void copyFile(string SfilePath, string DfilePath)
+{
+    int source = open(SfilePath.c_str(), O_RDONLY, 0);
+    int dest = open(DfilePath.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    struct stat stat_source;
+    fstat(source, &stat_source);
+    sendfile(dest, source, 0, stat_source.st_size);
+    chmod(DfilePath.c_str(), stat_source.st_mode);
+    chown(DfilePath.c_str(), stat_source.st_uid, stat_source.st_gid);
+    close(source);
+    close(dest);
+}
+void copyDirectory(string SfilePath, string DfilePath)
+{
+
+    DIR *dir;
+    struct dirent *diread;
+    if (mkdir(DfilePath.c_str(), 0755) == -1)
+    {
+        perror("");
+        return;
+    }
+    if ((dir = opendir(SfilePath.c_str())) != nullptr)
+    {
+        while ((diread = readdir(dir)) != nullptr)
+        {
+            string SnextD = SfilePath + "/" + diread->d_name;
+            string DnextD = DfilePath+"/"+diread->d_name;
+            if (!(strcmp(diread->d_name, ".")) || !(strcmp(diread->d_name, "..")))
+            {
+                cout << "inside"
+                     << " " << diread->d_name << endl;
+                continue;
+            }
+            if (!checkDir(SnextD))
+            {
+                cout << "copying"
+                     << " " << diread->d_name << endl;
+                
+                // if (remove(nextD.c_str()) != 0)
+                //     printf("Error: unable to delete the file");
+                copyFile(SnextD, DnextD);
+            }
+            else
+            {
+                copyDirectory(SnextD, DnextD);
+            }
+        }
+        closedir(dir);
+    }
+    else
+    {
+        perror("opendir");
+    }
+}
+void copyFileandDir(vector<string> files)
 {
     string desPath = preProcess(files[files.size() - 1]);
     cout << "des: " << desPath << endl;
@@ -219,11 +272,10 @@ void copyfiles(vector<string> files)
         cout << "Directory does not exists\n";
         return;
     }
-
     for (int i = 1; i < files.size() - 1; i++)
     {
         string SfilePath = preProcess(files[i]);
-        int j=0;
+        int j = 0;
         for (j = SfilePath.size() - 1; j >= 0; j--)
         {
             if (SfilePath[j] == '/')
@@ -231,21 +283,21 @@ void copyfiles(vector<string> files)
         }
         int len = files[j].size() - j - 1;
         string DfilePath = desPath + "/" + SfilePath.substr(j + 1, len);
-        cout << "filenewpath " <<" "<<i<<" "<< DfilePath << endl;
-        int source = open(SfilePath.c_str(), O_RDONLY, 0);
-        int dest = open(DfilePath.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-        struct stat stat_source;
-        fstat(source, &stat_source);
-        sendfile(dest, source, 0, stat_source.st_size);
-        chmod(DfilePath.c_str(), stat_source.st_mode);
-        chown(DfilePath.c_str(), stat_source.st_uid, stat_source.st_gid);
-        close(source);
-        close(dest);
+        cout << "filenewpath "
+             << " " << i << " " << DfilePath << endl;
+        if (checkDir(SfilePath))
+        {
+            copyDirectory(SfilePath,DfilePath);
+        }
+        else
+        {
+            copyFile(SfilePath,DfilePath);
+        }
     }
 }
 void moveFiles(vector<string> files)
 {
-    copyfiles(files);
+    copyFileandDir(files);
     for (int i = 1; i < files.size() - 1; i++)
     {
         removeFileandDir(files[i]);
@@ -295,14 +347,13 @@ void commandMode()
     }
     else if (cmd[0] == "cp")
     {
-        copyfiles(cmd);
+        copyFileandDir(cmd);
     }
     else if (cmd[0] == "mv")
     {
         moveFiles(cmd);
     }
 }
-
 int main()
 {
     commandMode();
