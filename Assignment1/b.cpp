@@ -230,6 +230,13 @@ void copyDirectory(string SfilePath, string DfilePath)
         perror("");
         return;
     }
+    struct stat stat_source;
+    if (stat((const char *)SfilePath.c_str(), &stat_source) != 0) // Use stat() to get the info
+    {
+        std::cerr << "Error: " << strerror(errno) << '\n';
+    }
+    chmod(DfilePath.c_str(), stat_source.st_mode);
+    chown(DfilePath.c_str(), stat_source.st_uid, stat_source.st_gid);
     if ((dir = opendir(SfilePath.c_str())) != nullptr)
     {
         while ((diread = readdir(dir)) != nullptr)
