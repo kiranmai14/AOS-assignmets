@@ -12,8 +12,18 @@ string cwd;
 string home;
 string comwd;
 stack<string> lef, rig;
+vector<unsigned short> globalwin;
 struct termios orig_termios;
 // to get home of the system
+vector<unsigned short> getWindowSize()
+{
+    vector<unsigned short> s;
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    s.push_back(w.ws_row);
+    s.push_back(w.ws_col);
+    return s;
+}
 void getHome()
 {
     struct passwd *pw = getpwuid(getuid());
@@ -146,15 +156,6 @@ bool getDetailsOfFiles(vector<string> files, vector<vector<string>> &filesWithde
     }
     return true;
 }
-vector<unsigned short> getWindowSize()
-{
-    vector<unsigned short> s;
-    struct winsize w;
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    s.push_back(w.ws_row);
-    s.push_back(w.ws_col);
-    return s;
-}
 int getOffset(int col)
 {
     return ceil(125 / (double)col);
@@ -198,7 +199,9 @@ void die(const char *s)
 void disableRawMode()
 {
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1)
+    {
         die("tcsetattr");
+    }
 }
 void enableRawMode()
 {
@@ -211,11 +214,17 @@ void enableRawMode()
 }
 bool checkDir(string file)
 {
-    // cout<<"inside check    "<<file;
     struct stat fileInfo;
     if (stat((const char *)file.c_str(), &fileInfo) != 0)
-    { // Use stat() to get the info
+    {
+        gotoxy(globalwin[0] - 3, 1);
+        ERASE;
+        for (int i = 0; i < globalwin[1]; i++)
+            cout << "=";
+        gotoxy(globalwin[0] - 2, 1);
+        ERASE;
         std::cerr << "Error: " << strerror(errno) << '\n';
+        gotoxy(globalwin[0], 1);
         return (EXIT_FAILURE);
     }
     if ((fileInfo.st_mode & S_IFMT) == S_IFDIR)
@@ -241,7 +250,7 @@ string preProcess(string path)
     }
     else if (path[0] == '.') // current directory
     {
-        absPath = comwd +path.substr(1, path.size() - 1);
+        absPath = comwd + path.substr(1, path.size() - 1);
     }
     else
     {
@@ -260,18 +269,33 @@ void create_file(vector<string> cmd)
         int fd1 = open(filename.c_str(), O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
         if (fd1 < 0)
         {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
             perror("c1");
+            gotoxy(globalwin[0], 1);
             exit(1);
         }
         if (close(fd1) < 0)
         {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
             perror("c1");
+            gotoxy(globalwin[0], 1);
             exit(1);
         }
     }
     else
     {
+        gotoxy(globalwin[0] - 3, 1);
+        ERASE;
+        for (int i = 0; i < globalwin[1]; i++)
+            cout << "=";
         cout << "Given destination is not a directory";
+        gotoxy(globalwin[0], 1);
     }
 }
 void create_dir(vector<string> cmd)
@@ -283,13 +307,23 @@ void create_dir(vector<string> cmd)
     {
         if (mkdir(dirname.c_str(), 0755) == -1)
         {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
             perror("");
+            gotoxy(globalwin[0], 1);
             return;
         }
     }
     else
     {
+        gotoxy(globalwin[0] - 3, 1);
+        ERASE;
+        for (int i = 0; i < globalwin[1]; i++)
+            cout << "=";
         cout << "Given destination is not a directory";
+        gotoxy(globalwin[0], 1);
     }
 }
 void renameFile(vector<string> cmd)
@@ -298,7 +332,12 @@ void renameFile(vector<string> cmd)
     string newf = preProcess(cmd[1]);
     if ((rename(old.c_str(), newf.c_str())))
     {
+        gotoxy(globalwin[0] - 3, 1);
+        ERASE;
+        for (int i = 0; i < globalwin[1]; i++)
+            cout << "=";
         perror("Error");
+        gotoxy(globalwin[0], 1);
     }
 }
 void removeFileandDir(string path)
@@ -318,15 +357,11 @@ void removeFileandDir(string path)
             string nextD = path + "/" + diread->d_name;
             if (!(strcmp(diread->d_name, ".")) || !(strcmp(diread->d_name, "..")))
             {
-                // cout << "inside"
-                //      << " " << diread->d_name << endl;
                 continue;
             }
 
             if (!checkDir(nextD))
             {
-                // cout << "removing"
-                //      << " " << diread->d_name << endl;
                 if (remove(nextD.c_str()) != 0)
                     printf("Error: unable to delete the file");
             }
@@ -340,7 +375,12 @@ void removeFileandDir(string path)
     }
     else
     {
+        gotoxy(globalwin[0] - 3, 1);
+        ERASE;
+        for (int i = 0; i < globalwin[1]; i++)
+            cout << "=";
         perror("opendir");
+        gotoxy(globalwin[0], 1);
     }
 }
 bool search(string cur, string filetoSearch)
@@ -354,8 +394,6 @@ bool search(string cur, string filetoSearch)
 
             if (!(strcmp(diread->d_name, ".")) || !(strcmp(diread->d_name, "..")))
             {
-                //  cout << "inside"
-                //  << " " << diread->d_name << endl;
                 continue;
             }
             string nextD = cur + "/" + diread->d_name;
@@ -374,8 +412,6 @@ bool search(string cur, string filetoSearch)
                     closedir(dir);
                     return true;
                 }
-                // cout<<"going to "<<nextD<<endl;
-                // closedir(dir);
                 if (search(nextD, filetoSearch))
                     return true;
             }
@@ -384,8 +420,13 @@ bool search(string cur, string filetoSearch)
     }
     else
     {
+        gotoxy(globalwin[0] - 3, 1);
+        ERASE;
+        for (int i = 0; i < globalwin[1]; i++)
+            cout << "=";
         perror("opendir");
         return EXIT_FAILURE;
+        gotoxy(globalwin[0], 1);
     }
     return false;
 }
@@ -408,11 +449,21 @@ void copyDirectory(string SfilePath, string DfilePath)
     struct stat stat_source;
     if (stat((const char *)SfilePath.c_str(), &stat_source) != 0) // Use stat() to get the info
     {
+        gotoxy(globalwin[0] - 3, 1);
+        ERASE;
+        for (int i = 0; i < globalwin[1]; i++)
+            cout << "=";
         std::cerr << "Error:" << strerror(errno) << '\n';
+        gotoxy(globalwin[0], 1);
     }
     if (mkdir((const char *)DfilePath.c_str(), stat_source.st_mode) == -1)
     {
+        gotoxy(globalwin[0] - 3, 1);
+        ERASE;
+        for (int i = 0; i < globalwin[1]; i++)
+            cout << "=";
         perror("");
+        gotoxy(globalwin[0], 1);
         return;
     }
     if ((dir = opendir(SfilePath.c_str())) != nullptr)
@@ -439,16 +490,25 @@ void copyDirectory(string SfilePath, string DfilePath)
     }
     else
     {
+        gotoxy(globalwin[0] - 3, 1);
+        ERASE;
+        for (int i = 0; i < globalwin[1]; i++)
+            cout << "=";
         perror("opendir");
+        gotoxy(globalwin[0], 1);
     }
 }
 void copyFileandDir(vector<string> files)
 {
     string desPath = preProcess(files[files.size() - 1]);
-    // cout << "des: " << desPath << endl;
     if (!checkDir(desPath))
     {
+        gotoxy(globalwin[0] - 3, 1);
+        ERASE;
+        for (int i = 0; i < globalwin[1]; i++)
+            cout << "=";
         cout << "Directory does not exists\n";
+        gotoxy(globalwin[0], 1);
         return;
     }
     for (int i = 0; i < files.size() - 1; i++)
@@ -462,9 +522,6 @@ void copyFileandDir(vector<string> files)
         }
         int len = files[j].size() - j - 1;
         string DfilePath = desPath + "/" + SfilePath.substr(j + 1, len);
-        // cout << "filenewpath "
-        //      << " " << i << " " << DfilePath << endl;
-        //      cout<<"sfile   "<<SfilePath;
         if (checkDir(SfilePath))
         {
             copyDirectory(SfilePath, DfilePath);
@@ -492,14 +549,20 @@ void executeCommand(vector<string> cmds)
     for (int i = 1; i < cmds.size(); i++)
     {
         files.push_back(cmds[i]);
-        // cout<<"inside"<<files[i-1]<<endl;
     }
-
     if (cmd == "create_file")
     {
         if (files.size() < 2)
         {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
+            gotoxy(globalwin[0] - 2, 1);
+            ERASE;
             cout << "2 parameters needed";
+            gotoxy(globalwin[0], 1);
+            return;
         }
 
         create_file(files);
@@ -508,7 +571,14 @@ void executeCommand(vector<string> cmds)
     {
         if (files.size() < 2)
         {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
+            gotoxy(globalwin[0] - 2, 1);
+            ERASE;
             cout << "2 parameters needed";
+            gotoxy(globalwin[0], 1);
         }
         create_dir(files);
     }
@@ -516,7 +586,14 @@ void executeCommand(vector<string> cmds)
     {
         if (files.size() < 2)
         {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
+            gotoxy(globalwin[0] - 2, 1);
+            ERASE;
             cout << "2 parameters needed";
+            gotoxy(globalwin[0], 1);
         }
         renameFile(files);
     }
@@ -524,42 +601,108 @@ void executeCommand(vector<string> cmds)
     {
         if (files.size() < 1)
         {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
+            gotoxy(globalwin[0] - 2, 1);
+            ERASE;
             cout << "1 parameters needed";
+            gotoxy(globalwin[0], 1);
         }
         if (search(get_cwd(), files[0]))
+        {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
+            gotoxy(globalwin[0] - 2, 1);
+            ERASE;
             cout << "Found";
+            gotoxy(globalwin[0], 1);
+        }
+
         else
+        {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
+            gotoxy(globalwin[0] - 2, 1);
+            ERASE;
             cout << "Not found";
+            gotoxy(globalwin[0], 1);
+        }
     }
     else if (cmd == "delete_dir" || cmd == "delete_file")
     {
         if (files.size() < 1)
         {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
+            gotoxy(globalwin[0] - 2, 1);
+            ERASE;
             cout << "1 parameters needed";
+            gotoxy(globalwin[0], 1);
         }
         string path = preProcess(files[0]);
         removeFileandDir(path);
     }
     else if (cmd == "copy")
     {
+        if (files.size() < 1)
+        {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
+            gotoxy(globalwin[0] - 2, 1);
+            ERASE;
+            cout << "1 parameters needed";
+            gotoxy(globalwin[0], 1);
+        }
         copyFileandDir(files);
     }
     else if (cmd == "move")
     {
+        if (files.size() < 1)
+        {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
+            gotoxy(globalwin[0] - 2, 1);
+            ERASE;
+            cout << "1 parameters needed";
+            gotoxy(globalwin[0], 1);
+        }
         moveFiles(files);
     }
     else if (cmd == "goto")
     {
+        if (files.size() < 1)
+        {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            for (int i = 0; i < globalwin[1]; i++)
+                cout << "=";
+            gotoxy(globalwin[0] - 2, 1);
+            ERASE;
+            cout << "1 parameters needed";
+            gotoxy(globalwin[0], 1);
+        }
         path = preProcess(files[0]);
         comwd = path;
     }
-    else if (cmd == "pwd")
-    {
-        cout << comwd;
-    }
     else
     {
-        gotoxy(winSize[0] - 2, 1);
+        gotoxy(globalwin[0] - 3, 1);
+        ERASE;
+        for (int i = 0; i < globalwin[1]; i++)
+            cout << "=";
+        gotoxy(globalwin[0] - 2, 1);
         ERASE;
         cout << "Not a valid command";
         gotoxy(winSize[0], 1);
@@ -568,16 +711,11 @@ void executeCommand(vector<string> cmds)
 void splitString(string line, vector<string> &cmd)
 {
     string word;
-    // getline(cin, line);
     istringstream iss(line);
     while (iss >> word)
     {
         cmd.push_back(word);
     }
-    // for(int i=0;i<cmd.size();i++)
-    // {
-    //     cout<<cmd[i]<<endl;
-    // }
 }
 bool commandMode()
 {
@@ -862,7 +1000,7 @@ bool normalMode(string wd)
         else if (inp[0] == 'h')
         {
             lef.push(cwd);
-            cwd = home;
+            cwd = root;
             if (normalMode(cwd))
             {
                 disableRawMode();
@@ -908,7 +1046,6 @@ bool normalMode(string wd)
                 gotoxy(winSize[0] + 1, 1);
                 cout << "----NORMAL MODE----";
                 gotoxy(1, 1);
-                // enableRawMode();
             }
         }
         else if (inp[0] == 'q')
@@ -927,5 +1064,6 @@ int main()
     getHome();
     root = wd;
     cwd = wd;
+    globalwin = getWindowSize();
     normalMode(wd);
 }
