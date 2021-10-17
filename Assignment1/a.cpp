@@ -1,5 +1,3 @@
-
-
 #include "headers.h"
 #define KEY_UP 72
 #define KEY_DOWN 80
@@ -12,12 +10,12 @@ char cwd[4096];
 char home[256];
 
 // to get home of the system
-void getHome()
-{
-    struct passwd *pw = getpwuid(getuid());
-    char *homedir = pw->pw_dir;
-    strcpy(home,homedir);
-}
+// void getHome()
+// {
+//     struct passwd *pw = getpwuid(getuid());
+//     char *homedir = pw->pw_dir;
+//     strcpy(home,homedir);
+// }
 // to get the current working directory
 char *get_cwd()
 {
@@ -481,7 +479,7 @@ bool normalMode(string wd)
         }
         else if (inp[2] == 'C') // right arrow
         {
-            if (lef.empty() || lef.size() <= 2)
+            if (lef.empty() || lef.size() <= 1)
                 continue;
             else
             {
@@ -574,7 +572,7 @@ int main()
 
     enableRawMode();
     char *wd = get_cwd();
-    getHome();
+    // getHome();
     strcpy(root, wd);
     strcpy(cwd, root);
     lef.push(wd);
