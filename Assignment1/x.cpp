@@ -239,7 +239,7 @@ string preProcess(string path)
         absPath = comwd;
         absPath = absPath + path.substr(1, path.size() - 1);
     }
-    else if (path[0] == '/') //current directory
+    else if (path[0] == '/') // current directory
     {
         absPath = comwd + path;
     }
@@ -406,11 +406,11 @@ void copyDirectory(string SfilePath, string DfilePath)
     DIR *dir;
     struct dirent *diread;
     struct stat stat_source;
-     if (stat((const char *)SfilePath.c_str(), &stat_source) != 0) // Use stat() to get the info
+    if (stat((const char *)SfilePath.c_str(), &stat_source) != 0) // Use stat() to get the info
     {
         std::cerr << "Error:" << strerror(errno) << '\n';
     }
-    if (mkdir((const char*)DfilePath.c_str(),stat_source.st_mode) == -1)
+    if (mkdir((const char *)DfilePath.c_str(), stat_source.st_mode) == -1)
     {
         perror("");
         return;
@@ -494,17 +494,17 @@ void executeCommand(vector<string> cmds)
         files.push_back(cmds[i]);
         // cout<<"inside"<<files[i-1]<<endl;
     }
-        
-    if (cmd == "cf")
+
+    if (cmd == "create_file")
     {
         if (files.size() < 2)
         {
             cout << "2 parameters needed";
         }
-        
+
         create_file(files);
     }
-    else if (cmd == "cd")
+    else if (cmd == "create_dir")
     {
         if (files.size() < 2)
         {
@@ -512,7 +512,7 @@ void executeCommand(vector<string> cmds)
         }
         create_dir(files);
     }
-    else if (cmd == "ren")
+    else if (cmd == "rename")
     {
         if (files.size() < 2)
         {
@@ -520,7 +520,7 @@ void executeCommand(vector<string> cmds)
         }
         renameFile(files);
     }
-    else if (cmd == "se")
+    else if (cmd == "search")
     {
         if (files.size() < 1)
         {
@@ -540,11 +540,11 @@ void executeCommand(vector<string> cmds)
         string path = preProcess(files[0]);
         removeFileandDir(path);
     }
-    else if (cmd == "cp")
+    else if (cmd == "copy")
     {
         copyFileandDir(files);
     }
-    else if (cmd == "mv")
+    else if (cmd == "move")
     {
         moveFiles(files);
     }
@@ -553,13 +553,16 @@ void executeCommand(vector<string> cmds)
         path = preProcess(files[0]);
         comwd = path;
     }
-    else if(cmd == "pwd")
+    else if (cmd == "pwd")
     {
-        cout<<comwd;
+        cout << comwd;
     }
     else
     {
+        gotoxy(winSize[0] - 2, 1);
+        ERASE;
         cout << "Not a valid command";
+        gotoxy(winSize[0] - 2, 1);
     }
 }
 void splitString(string line, vector<string> &cmd)
