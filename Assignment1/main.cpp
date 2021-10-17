@@ -747,6 +747,9 @@ bool commandMode()
         }
         else if (inp[0] == 27)
         {
+            gotoxy(globalwin[0] - 3, 1);
+            ERASE;
+            gotoxy(globalwin[0]-2, 1);
             ERASE;
             gotoxy(winSize[0] - 1, 1);
             ERASE;
