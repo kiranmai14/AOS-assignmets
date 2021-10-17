@@ -239,9 +239,9 @@ string preProcess(string path)
         absPath = comwd;
         absPath = absPath + path.substr(1, path.size() - 1);
     }
-    else if (path[0] == '/') // current directory
+    else if (path[0] == '.') // current directory
     {
-        absPath = comwd + path;
+        absPath = comwd +path.substr(1, path.size() - 1);
     }
     else
     {
@@ -562,7 +562,7 @@ void executeCommand(vector<string> cmds)
         gotoxy(winSize[0] - 2, 1);
         ERASE;
         cout << "Not a valid command";
-        gotoxy(winSize[0] - 2, 1);
+        gotoxy(winSize[0], 1);
     }
 }
 void splitString(string line, vector<string> &cmd)
