@@ -211,6 +211,7 @@ void enableRawMode()
 }
 bool checkDir(string file)
 {
+    // cout<<"inside check    "<<file;
     struct stat fileInfo;
     if (stat((const char *)file.c_str(), &fileInfo) != 0)
     { // Use stat() to get the info
@@ -231,16 +232,16 @@ string preProcess(string path)
     string absPath = "";
     if (path[0] == '~') ///\directory from where the application started
     {
-        absPath = home + path.substr(1, path.size() - 1);
+        absPath = root + path.substr(1, path.size() - 1);
     }
     else if (path == ".") // current directory
     {
         absPath = comwd;
         absPath = absPath + path.substr(1, path.size() - 1);
     }
-    else if (path[0] == '/') ///\directory from where the application started
+    else if (path[0] == '/') //current directory
     {
-        absPath = home + path;
+        absPath = comwd + path;
     }
     else
     {
@@ -294,7 +295,7 @@ void create_dir(vector<string> cmd)
 void renameFile(vector<string> cmd)
 {
     string old = preProcess(cmd[0]);
-    string newf = preProcess(cmd[21]);
+    string newf = preProcess(cmd[1]);
     if ((rename(old.c_str(), newf.c_str())))
     {
         perror("Error");
@@ -302,6 +303,7 @@ void renameFile(vector<string> cmd)
 }
 void removeFileandDir(string path)
 {
+    path = preProcess(path);
     DIR *dir;
     struct dirent *diread;
     if (!checkDir(path))
@@ -316,22 +318,20 @@ void removeFileandDir(string path)
             string nextD = path + "/" + diread->d_name;
             if (!(strcmp(diread->d_name, ".")) || !(strcmp(diread->d_name, "..")))
             {
-                cout << "inside"
-                     << " " << diread->d_name << endl;
+                // cout << "inside"
+                //      << " " << diread->d_name << endl;
                 continue;
             }
 
             if (!checkDir(nextD))
             {
-                cout << "removing"
-                     << " " << diread->d_name << endl;
+                // cout << "removing"
+                //      << " " << diread->d_name << endl;
                 if (remove(nextD.c_str()) != 0)
                     printf("Error: unable to delete the file");
             }
             else
             {
-                cout << "going to"
-                     << " " << diread->d_name << endl;
                 removeFileandDir(nextD);
             }
         }
@@ -403,21 +403,18 @@ void copyFile(string SfilePath, string DfilePath)
 }
 void copyDirectory(string SfilePath, string DfilePath)
 {
-
     DIR *dir;
     struct dirent *diread;
-    if (mkdir(DfilePath.c_str(), 0755) == -1)
+    struct stat stat_source;
+     if (stat((const char *)SfilePath.c_str(), &stat_source) != 0) // Use stat() to get the info
+    {
+        std::cerr << "Error:" << strerror(errno) << '\n';
+    }
+    if (mkdir((const char*)DfilePath.c_str(),stat_source.st_mode) == -1)
     {
         perror("");
         return;
     }
-    struct stat stat_source;
-    if (stat((const char *)SfilePath.c_str(), &stat_source) != 0) // Use stat() to get the info
-    {
-        std::cerr << "Error: " << strerror(errno) << '\n';
-    }
-    chmod(DfilePath.c_str(), stat_source.st_mode);
-    chown(DfilePath.c_str(), stat_source.st_uid, stat_source.st_gid);
     if ((dir = opendir(SfilePath.c_str())) != nullptr)
     {
         while ((diread = readdir(dir)) != nullptr)
@@ -426,17 +423,11 @@ void copyDirectory(string SfilePath, string DfilePath)
             string DnextD = DfilePath + "/" + diread->d_name;
             if (!(strcmp(diread->d_name, ".")) || !(strcmp(diread->d_name, "..")))
             {
-                cout << "inside"
-                     << " " << diread->d_name << endl;
+
                 continue;
             }
             if (!checkDir(SnextD))
             {
-                cout << "copying"
-                     << " " << diread->d_name << endl;
-
-                // if (remove(nextD.c_str()) != 0)
-                //     printf("Error: unable to delete the file");
                 copyFile(SnextD, DnextD);
             }
             else
@@ -473,6 +464,7 @@ void copyFileandDir(vector<string> files)
         string DfilePath = desPath + "/" + SfilePath.substr(j + 1, len);
         // cout << "filenewpath "
         //      << " " << i << " " << DfilePath << endl;
+        //      cout<<"sfile   "<<SfilePath;
         if (checkDir(SfilePath))
         {
             copyDirectory(SfilePath, DfilePath);
@@ -494,15 +486,22 @@ void moveFiles(vector<string> files)
 void executeCommand(vector<string> cmds)
 {
     string cmd = cmds[0];
+    vector<unsigned short> winSize = getWindowSize();
     vector<string> files;
+    string path;
     for (int i = 1; i < cmds.size(); i++)
+    {
         files.push_back(cmds[i]);
+        // cout<<"inside"<<files[i-1]<<endl;
+    }
+        
     if (cmd == "cf")
     {
         if (files.size() < 2)
         {
             cout << "2 parameters needed";
         }
+        
         create_file(files);
     }
     else if (cmd == "cd")
@@ -541,7 +540,6 @@ void executeCommand(vector<string> cmds)
         string path = preProcess(files[0]);
         removeFileandDir(path);
     }
-
     else if (cmd == "cp")
     {
         copyFileandDir(files);
@@ -552,8 +550,12 @@ void executeCommand(vector<string> cmds)
     }
     else if (cmd == "goto")
     {
-        string path = preProcess(files[0]);
+        path = preProcess(files[0]);
         comwd = path;
+    }
+    else if(cmd == "pwd")
+    {
+        cout<<comwd;
     }
     else
     {
@@ -569,6 +571,10 @@ void splitString(string line, vector<string> &cmd)
     {
         cmd.push_back(word);
     }
+    // for(int i=0;i<cmd.size();i++)
+    // {
+    //     cout<<cmd[i]<<endl;
+    // }
 }
 bool commandMode()
 {
@@ -617,11 +623,13 @@ bool commandMode()
         }
         else if (inp[0] == 10)
         {
-            splitString(command, cmds);
-
             ERASE;
             gotoxy(winSize[0], 1);
+            splitString(command, cmds);
             executeCommand(cmds);
+            // ERASE;
+            // gotoxy(winSize[0], 1);
+            cmds.clear();
             command.clear();
         }
         else
