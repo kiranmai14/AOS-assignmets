@@ -12,7 +12,7 @@
 #include <string>
 #include <pwd.h>
 #include <grp.h>
-#include <iomanip> //for setw
+#include <iomanip>
 #include <sys/ioctl.h>
 #include <stdio.h>
 #include <unistd.h>
