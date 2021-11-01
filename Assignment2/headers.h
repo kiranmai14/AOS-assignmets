@@ -9,4 +9,5 @@
 #include <cstdio>
 #include <vector>
 #include <sstream>
+#include <arpa/inet.h>
 #define SOCKETERROR (-1)
