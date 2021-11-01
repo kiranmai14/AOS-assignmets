@@ -80,8 +80,8 @@ void establishConnectionTracker(int port, string ip)
 int main()
 {
     int argc = 4;
-    string argv[] = {"./client", "127.0.0.1:3000", "tracker_file.txt"};
-    if (argc < 4)
+    string argv[] = {"./client", "127.0.0.1:2000", "tracker_file.txt"};
+    if (argc < 3)
     {
         cout << "Insufficiet command line arguments" << endl;
         exit(-1);

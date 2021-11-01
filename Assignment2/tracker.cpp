@@ -1,6 +1,23 @@
 #include "headers.h"
+char client_message[2000];
+char buffer[1024];
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 using namespace std;
 
+struct arg_struct
+{
+    int arg1;
+    int arg2;
+};
+void *acceptConnection(void *arguments)
+{
+    struct arg_struct *args = (struct arg_struct *)arguments;
+    int port = args->arg1;
+    int clientSocD = args->arg2;
+    send(clientSocD, "client connection success", 25, 0);
+    sleep(1);
+    pthread_exit(NULL);
+}
 int check(int exp, const char *msg)
 {
     if (exp == SOCKETERROR)
@@ -48,13 +65,11 @@ void getPortandIp(string argv[], vector<string> &trackerdetails)
         exit(-1);
     }
 }
-void acceptConnection(int port)
+void startListening(int port, int &server_socd, struct sockaddr_in &address)
 {
-    int server_socd;
-    struct sockaddr_in address;
+
     int opt = 1;
     check((server_socd = socket(AF_INET, SOCK_STREAM, 0)), "socket failed");
-
 
     // Forcefully attaching socket to the port
     check(setsockopt(server_socd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)), "setsockopt eeror");
@@ -63,15 +78,10 @@ void acceptConnection(int port)
     address.sin_port = htons(port);
     // Forcefully attaching socket to the port
 
-
     check(bind(server_socd, (struct sockaddr *)&address, sizeof(address)), "bind failed");
     check(listen(server_socd, 3), "listen error");
 
     cout << "waiting for connection....." << endl;
-    int clientSocD = 0;
-    socklen_t len = sizeof(struct sockaddr);
-    check((clientSocD = accept(server_socd, (struct sockaddr *)&address, &len)), "accept error");
-    send(clientSocD, "client connection success", 25, 0);
 }
 // int main(int argc, char *argv[])
 int main()
@@ -88,8 +98,8 @@ int main()
     }
     // tracker_no = convertToInt(argv[2]); //for command line arguments
     tracker_no = convertToInt(argv[2]); // for debugging purpose
-    vector <string> tracker_details;
-    getPortandIp(argv,tracker_details);
+    vector<string> tracker_details;
+    getPortandIp(argv, tracker_details);
     ip1 = tracker_details[0];
     port1 = convertToInt(tracker_details[1]);
     ip2 = tracker_details[2];
@@ -97,7 +107,29 @@ int main()
 
     // cout<<ip1<<" "<<port1<<" "<<ip2<<" "<<port2;
     // --------------------------------------------------------------------------------------
-    acceptConnection(port1);
-    sleep(1);
+    pthread_t tid[60];
+    int server_socd;
+    struct sockaddr_in address;
+    startListening(port1, server_socd, address);
+    int i = 0;
+    while (1)
+    {
+        int clientSocD = 0;
+        socklen_t len = sizeof(struct sockaddr);
+        check((clientSocD = accept(server_socd, (struct sockaddr *)&address, &len)), "accept error");
+        struct arg_struct args;
+        args.arg1 = port1;
+        args.arg2 = clientSocD;
+        check(pthread_create(&tid[i++], NULL, acceptConnection, (void *)&args),"Failed to create thread");
+        if (i >= 50)
+        {
+            i = 0;
+            while (i < 50)
+            {
+                pthread_join(tid[i++], NULL);
+            }
+            i = 0;
+        }
+    }
     return 0;
 }

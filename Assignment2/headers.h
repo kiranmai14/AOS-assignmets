@@ -10,4 +10,10 @@
 #include <vector>
 #include <sstream>
 #include <arpa/inet.h>
+#include <pthread.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <functional>
+
+
 #define SOCKETERROR (-1)
