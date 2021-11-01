@@ -14,6 +14,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <functional>
+#include <unordered_map>
+
+#define REGISTERED "Registered Successfully"
+#define LOGGEDIN "LoggedIn Successfully"
+#define LOGGEDIN "LoggedIn Successfully"
 
 
 #define SOCKETERROR (-1)

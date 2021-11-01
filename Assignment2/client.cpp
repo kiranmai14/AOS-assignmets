@@ -70,11 +70,35 @@ void establishConnectionTracker(int port, string ip)
     address.sin_port = htons(port);
     memset(&address.sin_zero, 0, sizeof(address.sin_zero));
     check((connect(client_socd, (struct sockaddr *)&address, sizeof(address))), "connection with tracker failed");
-    char buf[50] = {
+    char buf[1024] = {
         0,
     };
     recv(client_socd, buf, sizeof(buf), 0);
-    cout << buf <<endl;
+    cout << buf << endl;
+    // commands
+    while (1)
+    {
+        cout << "Enter Commands:" << endl
+             << "================================"
+             << "create_user <id> <pwd>" << endl
+             << "login <id> <pwd>" << endl
+             << "================================" << endl;
+        char data[1024] = {
+            0,
+        };
+        string d;
+        getline(cin, d);
+        strcpy(data, d.c_str());
+        send(client_socd, data, 1024, 0);
+        data[1024] = {
+            0,
+        };
+        recv(client_socd, data, 1024, 0);
+        cout << data << endl;
+    }
+}
+void covertAsServer()
+{
 }
 // int main(int argc, char *argv[])
 int main()
@@ -90,7 +114,9 @@ int main()
     int port;
     string ip;
     getPortandIp(argv, tracker_details, port, ip);
-    establishConnectionTracker(port, ip);
+    int tracker_port = convertToInt(tracker_details[1]);
+    establishConnectionTracker(tracker_port, ip);
+    covertAsServer();
     sleep(2);
     return 0;
 }

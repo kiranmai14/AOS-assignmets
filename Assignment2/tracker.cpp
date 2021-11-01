@@ -3,19 +3,73 @@ char client_message[2000];
 char buffer[1024];
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 using namespace std;
+void *acceptConnection(void *);
+unordered_map<string, string> users;
 
 struct arg_struct
 {
     int arg1;
     int arg2;
 };
+bool create_user(string user, string password)
+{
+    if (users.find(user) != users.end() && users[user] == password)
+    {
+        return false;
+    }
+    users[user] = password;
+    return true;
+}
+bool checkCredentials(string u, string password)
+{
+    if (users.find(u) != users.end() && users[u] == password)
+    {
+        return true;
+    }
+    else
+        return false;
+}
 void *acceptConnection(void *arguments)
 {
     struct arg_struct *args = (struct arg_struct *)arguments;
     int port = args->arg1;
     int clientSocD = args->arg2;
     send(clientSocD, "client connection success", 25, 0);
-    sleep(1);
+    while (1)
+    {
+        char data[1024] = {
+            0,
+        };
+        int nRet = recv(clientSocD, data, 1024, 0);
+        if (nRet == 0)
+        {
+            cout << "something happened closing connection" << endl;
+            close(clientSocD);
+        }
+        cout << data << endl;
+        string p = "";
+        vector<string> command;
+        istringstream ss(data);
+        string intermediate;
+        while (ss >> intermediate)
+        {
+            command.push_back(intermediate);
+        }
+        if (command[0] == "create_user")
+        {
+            if(create_user(command[1], command[2]))
+                send(clientSocD, REGISTERED, 1024, 0);
+            else
+                send(clientSocD, "user already exists", 1024, 0);
+        }
+        else if (command[0] == "login")
+        {
+            if(checkCredentials(command[1], command[2]))
+                send(clientSocD, LOGGEDIN, 1024, 0);
+            else
+                send(clientSocD, "user doesn't exists", 1024, 0);
+        }
+    }
     pthread_exit(NULL);
 }
 int check(int exp, const char *msg)
@@ -120,7 +174,7 @@ int main()
         struct arg_struct args;
         args.arg1 = port1;
         args.arg2 = clientSocD;
-        check(pthread_create(&tid[i++], NULL, acceptConnection, (void *)&args),"Failed to create thread");
+        check(pthread_create(&tid[i++], NULL, acceptConnection, (void *)&args), "Failed to create thread");
         if (i >= 50)
         {
             i = 0;
