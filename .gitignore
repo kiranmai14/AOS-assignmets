@@ -38,3 +38,14 @@ Assignment 1/bin
 #bin folder
 Assignment 2/.vscode
 Assignment 2/bin
+
+
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
+
+# Unignore all dirs
+!*/
+### Above combination will ignore all files without extension ###
