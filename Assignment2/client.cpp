@@ -1,6 +1,16 @@
 #include "headers.h"
 using namespace std;
 
+struct arg_struct
+{
+    int arg1;
+    string arg2;
+};
+struct arg_struct_cli
+{
+    int arg1;
+    int arg2;
+};
 int check(int exp, const char *msg)
 {
     if (exp == SOCKETERROR)
@@ -17,11 +27,12 @@ int convertToInt(string st)
     con >> x;
     return x;
 }
-void getPortandIp(string argv[], vector<string> &trackerdetails, int &port, string &ip)
+void getPortandIp(char *argv[], vector<string> &trackerdetails, int &port, string &ip)
+// void getPortandIp(string argv[], vector<string> &trackerdetails, int &port, string &ip)
 {
     FILE *fp;
-    // fp = fopen(argv[1], "r"); //for command line arguments
-    fp = fopen((const char *)argv[2].c_str(), "r"); // for debugging purpose
+    fp = fopen(argv[2], "r"); //for command line arguments
+    // fp = fopen((const char *)argv[2].c_str(), "r"); // for debugging purpose
     if (fp)
     {
         char c;
@@ -46,7 +57,8 @@ void getPortandIp(string argv[], vector<string> &trackerdetails, int &port, stri
         exit(-1);
     }
     string p = "";
-    for (int i = 0; i < argv[1].size(); i++)
+    string agv = argv[1];
+    for (int i = 0; i < agv.size(); i++)
     {
         if (argv[1][i] == ':')
         {
@@ -58,8 +70,38 @@ void getPortandIp(string argv[], vector<string> &trackerdetails, int &port, stri
     }
     port = convertToInt(p);
 }
-void establishConnectionTracker(int port, string ip)
+void getConnection(int port, string ip)
 {
+    int client_socd;
+    struct sockaddr_in address;
+    int opt = 1;
+    check((client_socd = socket(AF_INET, SOCK_STREAM, 0)), "socket of peer failed");
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = inet_addr(ip.c_str());
+    address.sin_port = htons(port);
+    memset(&address.sin_zero, 0, sizeof(address.sin_zero));
+    check((connect(client_socd, (struct sockaddr *)&address, sizeof(address))), "connection with peer failed");
+    char data[1024] = {
+        0,
+    };
+    cout<<"line 88"<<endl;
+    recv(client_socd, data, 1024, 0);
+    cout<<"line 89"<<endl;
+    cout<<data<<endl;
+    string d;
+    getline(cin, d);
+    strcpy(data, d.c_str());
+    data[1024] = {
+        0,
+    };
+    send(client_socd, data, 1024, 0);
+}
+void *establishConnectionTracker(void *arguments)
+{
+    struct arg_struct *args = (struct arg_struct *)arguments;
+    int port = args->arg1;
+    string ip = args->arg2;
     int client_socd;
     struct sockaddr_in address;
     int opt = 1;
@@ -78,10 +120,14 @@ void establishConnectionTracker(int port, string ip)
     // commands
     while (1)
     {
-        cout << "Enter Commands:" << endl
-             << "================================"
-             << "create_user <id> <pwd>" << endl
-             << "login <id> <pwd>" << endl
+        cout << "================================" << endl
+             << "Enter Commands:" << endl
+             << "--------------------------------" << endl
+             << setw(15) << left << "create_user"
+             << "<id> <pwd>" << endl
+             << setw(15) << left << "login"
+             << "<id> <pwd>" << endl
+             << setw(15) << left << "getport" << endl
              << "================================" << endl;
         char data[1024] = {
             0,
@@ -94,17 +140,103 @@ void establishConnectionTracker(int port, string ip)
             0,
         };
         recv(client_socd, data, 1024, 0);
+        cout << "line 140" << data << endl;
+        string dumm = data;
+        if (dumm == "2001")
+        {
+            cout << "result" << dumm << endl;
+            getConnection(2001, "127.0.0.1");
+        }
+    }
+    pthread_exit(NULL);
+}
+void *acceptConnection(void *arguments)
+{
+    struct arg_struct_cli *args = (struct arg_struct_cli *)arguments;
+    int port = args->arg1;
+    int clientSocD = args->arg2;
+    cout << "line154" << endl;
+    send(clientSocD, "peer connection success", 1024, 0);
+    cout<<"line 159"<<endl;
+    while (1)
+    {
+        char data[1024] = {
+            0,
+        };
+        cout<<"line 165"<<endl;
+        int nRet = recv(clientSocD, data, 1024, 0);
+        if (nRet == 0)
+        {
+            cout << "something happened closing connection" << endl;
+            close(clientSocD);
+        }
         cout << data << endl;
+        string p = "";
+        vector<string> command;
+        istringstream ss(data);
+        string intermediate;
+        while (ss >> intermediate)
+        {
+            command.push_back(intermediate);
+        }
+        // for (int i = 0; i < command.size(); i++)
+        //     cout << command[i];
+    }
+    pthread_exit(NULL);
+}
+void startListening(int port, string ip1, int &server_socd, struct sockaddr_in &address)
+{
+
+    int opt = 1;
+    check((server_socd = socket(AF_INET, SOCK_STREAM, 0)), "socket failed");
+
+    // Forcefully attaching socket to the port
+    check(setsockopt(server_socd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)), "setsockopt eeror");
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = inet_addr(ip1.c_str());
+    address.sin_port = htons(port);
+    // Forcefully attaching socket to the port
+
+    check(bind(server_socd, (struct sockaddr *)&address, sizeof(address)), "bind failed");
+    check(listen(server_socd, 3), "listen error");
+
+    cout << "waiting for connection at " << port << endl;
+}
+void covertAsServer(int cliport, string ip)
+{
+    pthread_t tid[60];
+    int server_socd;
+    struct sockaddr_in address;
+    startListening(cliport, ip, server_socd, address);
+    int i = 0;
+    while (1)
+    {
+        int clientSocD = 0;
+        socklen_t len = sizeof(struct sockaddr);
+        cout<<"line 210"<<endl;
+        check((clientSocD = accept(server_socd, (struct sockaddr *)&address, &len)), "accept error");
+        struct arg_struct_cli args;
+        args.arg1 = cliport;
+        args.arg2 = clientSocD;
+        cout<<"line 215"<<endl;
+        check(pthread_create(&tid[i++], NULL, acceptConnection, (void *)&args), "Failed to create thread");
+        cout<<"line 217"<<endl;
+        if (i >= 50)
+        {
+            i = 0;
+            while (i < 50)
+            {
+                pthread_join(tid[i++], NULL);
+            }
+            i = 0;
+        }
     }
 }
-void covertAsServer()
+int main(int argc, char *argv[])
+// int main()
 {
-}
-// int main(int argc, char *argv[])
-int main()
-{
-    int argc = 4;
-    string argv[] = {"./client", "127.0.0.1:2000", "tracker_file.txt"};
+    // int argc = 4;
+    // string argv[] = {"./client", "127.0.0.1:2000", "tracker_file.txt"};
     if (argc < 3)
     {
         cout << "Insufficiet command line arguments" << endl;
@@ -115,8 +247,12 @@ int main()
     string ip;
     getPortandIp(argv, tracker_details, port, ip);
     int tracker_port = convertToInt(tracker_details[1]);
-    establishConnectionTracker(tracker_port, ip);
-    covertAsServer();
+    pthread_t peerToTracker;
+    struct arg_struct args;
+    args.arg1 = tracker_port;
+    args.arg2 = tracker_details[0];
+    check(pthread_create(&peerToTracker, NULL, establishConnectionTracker, (void *)&args), "Failed to create thread");
+    covertAsServer(port, ip);
     sleep(2);
     return 0;
 }

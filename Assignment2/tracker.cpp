@@ -51,24 +51,33 @@ void *acceptConnection(void *arguments)
         vector<string> command;
         istringstream ss(data);
         string intermediate;
+        cout <<"line 54" << endl;
         while (ss >> intermediate)
         {
             command.push_back(intermediate);
         }
+         cout <<"line 59" << endl;
+        cout << "command[0] " << command[0]<<endl;
         if (command[0] == "create_user")
         {
-            if(create_user(command[1], command[2]))
+            if (create_user(command[1], command[2]))
                 send(clientSocD, REGISTERED, 1024, 0);
             else
                 send(clientSocD, "user already exists", 1024, 0);
         }
         else if (command[0] == "login")
         {
-            if(checkCredentials(command[1], command[2]))
+            if (checkCredentials(command[1], command[2]))
                 send(clientSocD, LOGGEDIN, 1024, 0);
             else
                 send(clientSocD, "user doesn't exists", 1024, 0);
         }
+        else if (command[0] == "getport")
+        {
+            cout<<"sent"<<"2001"<<endl;
+            send(clientSocD, "2001", 1024, 0);
+        }
+        cout <<"line 79" << endl;
     }
     pthread_exit(NULL);
 }
@@ -119,7 +128,7 @@ void getPortandIp(string argv[], vector<string> &trackerdetails)
         exit(-1);
     }
 }
-void startListening(int port, int &server_socd, struct sockaddr_in &address)
+void startListening(int port, string ip1, int &server_socd, struct sockaddr_in &address)
 {
 
     int opt = 1;
@@ -128,7 +137,7 @@ void startListening(int port, int &server_socd, struct sockaddr_in &address)
     // Forcefully attaching socket to the port
     check(setsockopt(server_socd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)), "setsockopt eeror");
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_addr.s_addr = inet_addr(ip1.c_str());
     address.sin_port = htons(port);
     // Forcefully attaching socket to the port
 
@@ -164,7 +173,7 @@ int main()
     pthread_t tid[60];
     int server_socd;
     struct sockaddr_in address;
-    startListening(port1, server_socd, address);
+    startListening(port1, ip1, server_socd, address);
     int i = 0;
     while (1)
     {
