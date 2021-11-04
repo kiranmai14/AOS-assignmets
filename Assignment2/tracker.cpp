@@ -126,7 +126,7 @@ string list_groups()
     string groupIds = "";
     for (auto m : groups)
     {
-        groupIds = groupIds + m.first;
+        groupIds = groupIds + " "+m.first;
         cout<<m.first<<": ";
         for (auto x : m.second)
         {
@@ -231,7 +231,7 @@ void *acceptConnection(void *arguments)
         }
         else if (command[0] == "accept_request")
         {
-            accept_request(command[0], command[1]);
+            accept_request(command[1], command[2]);
         }
         else if (command[0] == "leave_group")
         {

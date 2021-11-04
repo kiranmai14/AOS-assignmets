@@ -1,8 +1,10 @@
 #include "headers.h"
 using namespace std;
 
-void * FromTracker(void *);
-void * ToTracker(void *);
+void *FromTracker(void *);
+void *ToTracker(void *);
+sem_t x;
+unordered_map<string, vector<string>> pendingReq;
 struct arg_struct
 {
     int arg1;
@@ -14,6 +16,12 @@ struct arg_struct_cli
 {
     int arg1;
     int arg2;
+};
+struct clientDetails
+{
+    int socketId;
+    int port;
+    string ip;
 };
 int check(int exp, const char *msg)
 {
@@ -101,46 +109,46 @@ void getConnection(int port, string ip)
     };
     send(client_socd, data, 1024, 0);
 }
-void * FromTracker(void *arguments)
+void *FromTracker(void *arguments)
 {
-
+    struct clientDetails *args = (struct clientDetails *)arguments;
+    int client_socd = args->socketId;
+    while (1)
+    {
+        char data[1024] = {
+            0,
+        };
+        recv(client_socd, data, 1024, 0);
+        cout << data << endl;
+        // processing received data
+        vector<string> received;
+        istringstream sst(data);
+        string inter;
+        while (sst >> inter)
+        {
+            received.push_back(inter);
+        }
+        if (received[0] == "peer")
+        {
+            string uidReq = received[1];
+            string gidReq = received[received.size() - 1];
+            sem_wait(&x);
+            pendingReq[gidReq].push_back(uidReq);
+            sem_post(&x);
+        }
+        string dumm = data;
+        if (dumm == "2001")
+        {
+            cout << "result" << dumm << endl;
+            getConnection(2001, "127.0.0.1");
+        }
+    }
     pthread_exit(NULL);
 }
-void * ToTracker(void *arguments)
+void *ToTracker(void *arguments)
 {
-    
-    pthread_exit(NULL);
-}
-void *establishConnectionTracker(void *arguments)
-{
-    unordered_map<string, vector<string>> pendingReq;
-    struct arg_struct *args = (struct arg_struct *)arguments;
-    int port = args->arg1;
-    string ip = args->arg2;
-    int client_socd;
-    struct sockaddr_in address;
-    int opt = 1;
-    check((client_socd = socket(AF_INET, SOCK_STREAM, 0)), "socket failed");
-
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = inet_addr(ip.c_str());
-    address.sin_port = htons(port);
-    memset(&address.sin_zero, 0, sizeof(address.sin_zero));
-    check((connect(client_socd, (struct sockaddr *)&address, sizeof(address))), "connection with tracker failed");
-    char buf[1024] = {
-        0,
-    };
-    
-    pthread_t fromTracker,toTracker;
-
-	pthread_create(&fromTracker, NULL, FromTracker, (void *)p);
-	pthread_create(&toTracker, NULL, ToTracker, (void *)p);
-
-	pthread_join(fromTracker, NULL);
-	pthread_join(toTracker, NULL);
-    recv(client_socd, buf, sizeof(buf), 0);
-    cout << buf << endl;
-    // commands
+    struct clientDetails *args = (struct clientDetails *)arguments;
+    int client_socd = args->socketId;
     while (1)
     {
         cout << "================================" << endl
@@ -158,6 +166,10 @@ void *establishConnectionTracker(void *arguments)
              << "<gid>" << endl
              << setw(15) << left << "accept_request"
              << "<gid> <uid>" << endl
+             << setw(15) << left << "list_groups" << endl
+             << setw(15) << left << "leave_group"
+             << "<gid> <uid>" << endl
+             << setw(15) << left << "logout" << endl
              << "================================" << endl;
         char data[1024] = {
             0,
@@ -174,20 +186,22 @@ void *establishConnectionTracker(void *arguments)
         }
         if (command[0] == "login")
         {
-            inpFromUser = inpFromUser + " " + args->cliip + " " + to_string(args->cliport);
+            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
         }
         else if (command[0] == "create_group")
         {
-            inpFromUser = inpFromUser + " " + args->cliip + " " + to_string(args->cliport);
+            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
         }
         else if (command[0] == "join_group")
         {
-            inpFromUser = inpFromUser + " " + args->cliip + " " + to_string(args->cliport);
+            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
         }
         else if (command[0] == "list_requests")
         {
             string gid = command[1];
+            sem_wait(&x);
             vector<string> reqlist = pendingReq[gid];
+            sem_post(&x);
             for (auto pai : reqlist)
             {
                 cout << pai << endl;
@@ -198,7 +212,7 @@ void *establishConnectionTracker(void *arguments)
         {
             string gid = command[1];
             string uid = command[2];
-            vector<string> reqlist = pendingReq[gid];
+            sem_wait(&x);
             for (auto it = pendingReq[gid].begin(); it != pendingReq[gid].end(); ++it)
             {
                 if (*it == uid)
@@ -207,41 +221,50 @@ void *establishConnectionTracker(void *arguments)
                     break;
                 }
             }
+            sem_post(&x);
         }
         else if (command[0] == "leave_group")
         {
-            inpFromUser = inpFromUser + " " + args->cliip + " " + to_string(args->cliport);
+            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
         }
         cout << "sending " << inpFromUser << endl;
         strcpy(data, inpFromUser.c_str());
         send(client_socd, data, 1024, 0);
-        data[1024] = {
-            0,
-        };
-        cout << "line 200" << endl;
-        recv(client_socd, data, 1024, 0);
-        cout << data << endl;
-        // processing received data
-        vector<string> received;
-        istringstream sst(data);
-        string inter;
-        while (sst >> inter)
-        {
-            received.push_back(inter);
-        }
-        if (received[0] == "peer")
-        {
-            string uidReq = received[1];
-            string gidReq = received[received.size() - 1];
-            pendingReq[gidReq].push_back(uidReq);
-        }
-        string dumm = data;
-        if (dumm == "2001")
-        {
-            cout << "result" << dumm << endl;
-            getConnection(2001, "127.0.0.1");
-        }
     }
+    pthread_exit(NULL);
+}
+void *establishConnectionTracker(void *arguments)
+{
+
+    struct arg_struct *args = (struct arg_struct *)arguments;
+    int port = args->arg1;
+    string ip = args->arg2;
+    int client_socd;
+    struct sockaddr_in address;
+    int opt = 1;
+    check((client_socd = socket(AF_INET, SOCK_STREAM, 0)), "socket failed");
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = inet_addr(ip.c_str());
+    address.sin_port = htons(port);
+    memset(&address.sin_zero, 0, sizeof(address.sin_zero));
+    check((connect(client_socd, (struct sockaddr *)&address, sizeof(address))), "connection with tracker failed");
+    char buf[1024] = {
+        0,
+    };
+
+    pthread_t fromTracker, toTracker;
+    struct clientDetails cd;
+    cd.socketId = client_socd;
+    cd.ip = args->cliip;
+    cd.port = args->cliport;
+
+    pthread_create(&fromTracker, NULL, FromTracker, (void *)&cd);
+    pthread_create(&toTracker, NULL, ToTracker, (void *)&cd);
+
+    pthread_join(fromTracker, NULL);
+    pthread_join(toTracker, NULL);
+
     pthread_exit(NULL);
 }
 void *acceptConnection(void *arguments)
@@ -336,6 +359,7 @@ int main(int argc, char *argv[])
         cout << "Insufficiet command line arguments" << endl;
         exit(-1);
     }
+    sem_init(&x, 0, 1);
     vector<string> tracker_details;
     int port;
     string ip;

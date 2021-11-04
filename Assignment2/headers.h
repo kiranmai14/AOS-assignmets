@@ -18,6 +18,7 @@
 #include <iomanip>
 #include <cstring>
  #include <queue>
+ #include <semaphore.h>
 
 #define REGISTERED "Registered Successfully"
 #define LOGGEDIN "LoggedIn Successfully"
