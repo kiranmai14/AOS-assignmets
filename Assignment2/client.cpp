@@ -5,6 +5,8 @@ struct arg_struct
 {
     int arg1;
     string arg2;
+    int cliport;
+    string cliip;
 };
 struct arg_struct_cli
 {
@@ -85,10 +87,10 @@ void getConnection(int port, string ip)
     char data[1024] = {
         0,
     };
-    cout<<"line 88"<<endl;
+    // cout<<"line 88"<<endl;
     recv(client_socd, data, 1024, 0);
-    cout<<"line 89"<<endl;
-    cout<<data<<endl;
+    // cout<<"line 89"<<endl;
+    cout << data << endl;
     string d;
     getline(cin, d);
     strcpy(data, d.c_str());
@@ -124,23 +126,52 @@ void *establishConnectionTracker(void *arguments)
              << "Enter Commands:" << endl
              << "--------------------------------" << endl
              << setw(15) << left << "create_user"
-             << "<id> <pwd>" << endl
+             << "<uid> <pwd>" << endl
              << setw(15) << left << "login"
-             << "<id> <pwd>" << endl
-             << setw(15) << left << "getport" << endl
+             << "<uid> <pwd>" << endl
+             << setw(15) << left << "create_group"
+             << "<gid>" << endl
              << "================================" << endl;
         char data[1024] = {
             0,
         };
-        string d;
-        getline(cin, d);
-        strcpy(data, d.c_str());
+        string inpFromUser;
+        getline(cin, inpFromUser);
+        // coverting string into words
+        vector<string> command;
+        istringstream ss(inpFromUser);
+        string intermediate;
+        while (ss >> intermediate)
+        {
+            command.push_back(intermediate);
+        }
+        if (command[0] == "login")
+        {
+            inpFromUser = inpFromUser + " " + args->cliip + " " + to_string(args->cliport);
+        }
+        else if (command[0] == "create_group")
+        {
+            inpFromUser = inpFromUser + " " + args->cliip + " " + to_string(args->cliport);
+        }
+        else if (command[0] == "join_group")
+        {
+            inpFromUser = inpFromUser + " " + args->cliip + " " + to_string(args->cliport);
+        }
+        else if (command[0] == "leave_group")
+        {
+            inpFromUser = inpFromUser + " " + args->cliip + " " + to_string(args->cliport);
+        }
+        cout << "sending " << inpFromUser << endl;
+        strcpy(data, inpFromUser.c_str());
         send(client_socd, data, 1024, 0);
         data[1024] = {
             0,
         };
         recv(client_socd, data, 1024, 0);
-        cout << "line 140" << data << endl;
+        // cout << "line 140" << data << endl;
+        vector<string> command;
+        istringstream ss(data);
+        string intermediate;
         string dumm = data;
         if (dumm == "2001")
         {
@@ -155,15 +186,15 @@ void *acceptConnection(void *arguments)
     struct arg_struct_cli *args = (struct arg_struct_cli *)arguments;
     int port = args->arg1;
     int clientSocD = args->arg2;
-    cout << "line154" << endl;
+    // cout << "line154" << endl;
     send(clientSocD, "peer connection success", 1024, 0);
-    cout<<"line 159"<<endl;
+    // cout<<"line 159"<<endl;
     while (1)
     {
         char data[1024] = {
             0,
         };
-        cout<<"line 165"<<endl;
+        // cout<<"line 165"<<endl;
         int nRet = recv(clientSocD, data, 1024, 0);
         if (nRet == 0)
         {
@@ -213,14 +244,14 @@ void covertAsServer(int cliport, string ip)
     {
         int clientSocD = 0;
         socklen_t len = sizeof(struct sockaddr);
-        cout<<"line 210"<<endl;
+        // cout<<"line 210"<<endl;
         check((clientSocD = accept(server_socd, (struct sockaddr *)&address, &len)), "accept error");
         struct arg_struct_cli args;
         args.arg1 = cliport;
         args.arg2 = clientSocD;
-        cout<<"line 215"<<endl;
+        // cout<<"line 215"<<endl;
         check(pthread_create(&tid[i++], NULL, acceptConnection, (void *)&args), "Failed to create thread");
-        cout<<"line 217"<<endl;
+        // cout<<"line 217"<<endl;
         if (i >= 50)
         {
             i = 0;
@@ -251,6 +282,8 @@ int main(int argc, char *argv[])
     struct arg_struct args;
     args.arg1 = tracker_port;
     args.arg2 = tracker_details[0];
+    args.cliip = ip;
+    args.cliport = port;
     check(pthread_create(&peerToTracker, NULL, establishConnectionTracker, (void *)&args), "Failed to create thread");
     covertAsServer(port, ip);
     sleep(2);

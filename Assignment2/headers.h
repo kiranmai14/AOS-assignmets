@@ -16,6 +16,9 @@
 #include <functional>
 #include <unordered_map>
 #include <iomanip>
+#include <cstring>
+ #include <byteswap.h>
+ #include <climits>
 
 #define REGISTERED "Registered Successfully"
 #define LOGGEDIN "LoggedIn Successfully"
