@@ -126,8 +126,8 @@ string list_groups()
     string groupIds = "";
     for (auto m : groups)
     {
-        groupIds = groupIds + " "+m.first;
-        cout<<m.first<<": ";
+        groupIds = groupIds + " " + m.first;
+        cout << m.first << ": ";
         for (auto x : m.second)
         {
             cout << x << " ";
@@ -138,6 +138,21 @@ string list_groups()
         // cout<<"Members: "
     }
     return groupIds;
+}
+void logout(string ip, int port)
+{
+    for (auto it = portIpUsers.begin(); it != portIpUsers.end(); ++it)
+    {
+        if ((*it).second.first == ip && (*it).second.second)
+        {
+            portIpUsers.erase(it);
+            break;
+        }
+    }
+    for (auto x : portIpUsers)
+    {
+        cout << x.first << " " << x.second.first << " " << x.second.second << endl;
+    }
 }
 void upload_file(string gid, string hashval, string ip, int port, string filename)
 {
@@ -235,9 +250,15 @@ void *acceptConnection(void *arguments)
         }
         else if (command[0] == "leave_group")
         {
-            int port = convertToInt(command[4]);
-            string ip = command[3];
-            // leave_group(command[1], ip, port); //command[1] = gid
+            int port = convertToInt(command[3]);
+            string ip = command[2];
+            leave_group(command[1], ip, port); //command[1] = gid
+        }
+        else if (command[0] == "logout")
+        {
+            int port = convertToInt(command[2]);
+            string ip = command[1];
+            logout(ip, port); 
         }
         else if (command[0] == "list_groups")
         {

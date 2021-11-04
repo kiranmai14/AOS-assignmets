@@ -168,7 +168,7 @@ void *ToTracker(void *arguments)
              << "<gid> <uid>" << endl
              << setw(15) << left << "list_groups" << endl
              << setw(15) << left << "leave_group"
-             << "<gid> <uid>" << endl
+             << "<gid>" << endl
              << setw(15) << left << "logout" << endl
              << "================================" << endl;
         char data[1024] = {
@@ -193,6 +193,10 @@ void *ToTracker(void *arguments)
             inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
         }
         else if (command[0] == "join_group")
+        {
+            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
+        }
+        else if (command[0] == "leave_group")
         {
             inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
         }
@@ -223,7 +227,7 @@ void *ToTracker(void *arguments)
             }
             sem_post(&x);
         }
-        else if (command[0] == "leave_group")
+        else if (command[0] == "logout")
         {
             inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
         }
