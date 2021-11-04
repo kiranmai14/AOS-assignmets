@@ -1,6 +1,8 @@
 #include "headers.h"
 using namespace std;
 
+void * FromTracker(void *);
+void * ToTracker(void *);
 struct arg_struct
 {
     int arg1;
@@ -99,8 +101,19 @@ void getConnection(int port, string ip)
     };
     send(client_socd, data, 1024, 0);
 }
+void * FromTracker(void *arguments)
+{
+
+    pthread_exit(NULL);
+}
+void * ToTracker(void *arguments)
+{
+    
+    pthread_exit(NULL);
+}
 void *establishConnectionTracker(void *arguments)
 {
+    unordered_map<string, vector<string>> pendingReq;
     struct arg_struct *args = (struct arg_struct *)arguments;
     int port = args->arg1;
     string ip = args->arg2;
@@ -117,6 +130,14 @@ void *establishConnectionTracker(void *arguments)
     char buf[1024] = {
         0,
     };
+    
+    pthread_t fromTracker,toTracker;
+
+	pthread_create(&fromTracker, NULL, FromTracker, (void *)p);
+	pthread_create(&toTracker, NULL, ToTracker, (void *)p);
+
+	pthread_join(fromTracker, NULL);
+	pthread_join(toTracker, NULL);
     recv(client_socd, buf, sizeof(buf), 0);
     cout << buf << endl;
     // commands
@@ -131,6 +152,12 @@ void *establishConnectionTracker(void *arguments)
              << "<uid> <pwd>" << endl
              << setw(15) << left << "create_group"
              << "<gid>" << endl
+             << setw(15) << left << "join_group"
+             << "<gid>" << endl
+             << setw(15) << left << "list_requests"
+             << "<gid>" << endl
+             << setw(15) << left << "accept_request"
+             << "<gid> <uid>" << endl
              << "================================" << endl;
         char data[1024] = {
             0,
@@ -157,6 +184,30 @@ void *establishConnectionTracker(void *arguments)
         {
             inpFromUser = inpFromUser + " " + args->cliip + " " + to_string(args->cliport);
         }
+        else if (command[0] == "list_requests")
+        {
+            string gid = command[1];
+            vector<string> reqlist = pendingReq[gid];
+            for (auto pai : reqlist)
+            {
+                cout << pai << endl;
+            }
+            continue;
+        }
+        else if (command[0] == "accept_request")
+        {
+            string gid = command[1];
+            string uid = command[2];
+            vector<string> reqlist = pendingReq[gid];
+            for (auto it = pendingReq[gid].begin(); it != pendingReq[gid].end(); ++it)
+            {
+                if (*it == uid)
+                {
+                    pendingReq[gid].erase(it);
+                    break;
+                }
+            }
+        }
         else if (command[0] == "leave_group")
         {
             inpFromUser = inpFromUser + " " + args->cliip + " " + to_string(args->cliport);
@@ -167,11 +218,23 @@ void *establishConnectionTracker(void *arguments)
         data[1024] = {
             0,
         };
+        cout << "line 200" << endl;
         recv(client_socd, data, 1024, 0);
-        // cout << "line 140" << data << endl;
-        vector<string> command;
-        istringstream ss(data);
-        string intermediate;
+        cout << data << endl;
+        // processing received data
+        vector<string> received;
+        istringstream sst(data);
+        string inter;
+        while (sst >> inter)
+        {
+            received.push_back(inter);
+        }
+        if (received[0] == "peer")
+        {
+            string uidReq = received[1];
+            string gidReq = received[received.size() - 1];
+            pendingReq[gidReq].push_back(uidReq);
+        }
         string dumm = data;
         if (dumm == "2001")
         {

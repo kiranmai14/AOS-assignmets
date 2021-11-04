@@ -10,13 +10,13 @@ struct clientLogin
     T1 port;
     T2 ip;
 };
-unordered_map<string, string> users;
+unordered_map<string, string> users;                  //[uid]->[passwd]
 unordered_map<string, vector<string>> groups;         //[grpid]->owner,users
 unordered_map<string, string> userGids;               //[user]->gid
 unordered_map<string, string> fileHash;               //[filename]->hashval
 unordered_map<string, vector<string>> fileOwners;     //[filename]->owners vector
 unordered_map<string, pair<string, int>> portIpUsers; //user->[ip,port]
-unordered_map<string, int> SocIdsUsers;
+unordered_map<string, int> SocIdsUsers;               //[users]->socketId
 
 struct clientDetails
 {
@@ -35,10 +35,12 @@ string searchUser(int port, string ip)
 {
     string s;
     int p;
+    cout << "line 38" << endl;
     for (auto m : portIpUsers)
     {
         s = m.second.first;
         p = m.second.second;
+        cout << s << " " << p << endl;
         if (port == p && ip == s)
             return m.first;
     }
@@ -79,7 +81,7 @@ void create_group(string gid, string ip, int port)
     userGids[userId] = gid;
     for (auto x : groups)
     {
-        cout << x.first;
+        cout << "gid " << x.first << " ";
         for (auto y : x.second)
         {
             cout << y << " ";
@@ -92,6 +94,10 @@ int join_group(string gid)
     string owner = groups[gid][0];
     int ownerSocId = SocIdsUsers[owner];
     return ownerSocId;
+}
+void accept_request(string gid, string uid)
+{
+    groups[gid].push_back(uid);
 }
 void leave_group(string gid, string ip, int port)
 {
@@ -121,6 +127,12 @@ string list_groups()
     for (auto m : groups)
     {
         groupIds = groupIds + m.first;
+        cout<<m.first<<": ";
+        for (auto x : m.second)
+        {
+            cout << x << " ";
+        }
+        cout << endl;
         // cout<<"GroupId: "<<x.first<<endl;
         // cout<<"Owner: "<<x.second[0]<<endl;
         // cout<<"Members: "
@@ -207,12 +219,19 @@ void *acceptConnection(void *arguments)
             int port = convertToInt(command[3]);
             string ip = command[2];
             int ownSocId = join_group(command[1]);
-            string req = "peer " + ip + " " + to_string(port) + " " + "wants to join group" + command[1];
+            string uidReq = searchUser(port, ip);
+            string req = "peer " + uidReq + " " + "wants to join group" + " " + command[1];
             char reqData[1024] = {
                 0,
             };
-            strcpy(reqData,req.c_str());
+            strcpy(reqData, req.c_str());
+            cout << "line 220" << endl
+                 << reqData << endl;
             send(ownSocId, reqData, 1024, 0);
+        }
+        else if (command[0] == "accept_request")
+        {
+            accept_request(command[0], command[1]);
         }
         else if (command[0] == "leave_group")
         {
@@ -223,8 +242,12 @@ void *acceptConnection(void *arguments)
         else if (command[0] == "list_groups")
         {
             string dataToSend = list_groups(); //command[1] = gid
+            char reqData[1024] = {
+                0,
+            };
+            strcpy(reqData, dataToSend.c_str());
+            send(clientSocD, reqData, 1024, 0);
         }
-
         else if (command[0] == "upload_file")
         {
             //command[1] = gid command[2]=filename command[3]= hashvaloffile
@@ -237,6 +260,7 @@ void *acceptConnection(void *arguments)
         }
 
         // cout << "line 79" << endl;
+        cout << "line 252" << endl;
     }
     pthread_exit(NULL);
 }
