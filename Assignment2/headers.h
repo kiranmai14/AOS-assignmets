@@ -17,12 +17,13 @@
 #include <unordered_map>
 #include <iomanip>
 #include <cstring>
- #include <queue>
- #include <semaphore.h>
+#include <queue>
+#include <semaphore.h>
+#include <sys/stat.h>
 
 #define REGISTERED "Registered Successfully"
 #define LOGGEDIN "LoggedIn Successfully"
 #define LOGGEDIN "LoggedIn Successfully"
-
+#define CHUNK_SIZE 512000
 
 #define SOCKETERROR (-1)

@@ -10,13 +10,11 @@ struct clientLogin
     T1 port;
     T2 ip;
 };
-unordered_map<string, string> users;                  //[uid]->[passwd]
-unordered_map<string, vector<string>> groups;         //[grpid]->owner,users
-unordered_map<string, string> userGids;               //[user]->gid
-unordered_map<string, string> fileHash;               //[filename]->hashval
-unordered_map<string, vector<string>> fileOwners;     //[filename]->owners vector
-unordered_map<string, pair<string, int>> portIpUsers; //user->[ip,port]
-unordered_map<string, int> SocIdsUsers;               //[users]->socketId
+struct fileDetails
+{
+    string gid;
+    unordered_map<string, vector<string>> fileOwners; //[filename]->->"uid$01010101" (vector)
+};
 
 struct clientDetails
 {
@@ -24,6 +22,24 @@ struct clientDetails
     int port;
     string ip;
 };
+unordered_map<string, string> users;                  //[uid]->[passwd]
+unordered_map<string, vector<string>> groups;         //[grpid]->owner,users
+unordered_map<string, string> userGids;               //[user]->gid
+unordered_map<string, string> fileHash;               //[filename]->hashval
+unordered_map<string, pair<string, int>> portIpUsers; //user->[ip,port]
+unordered_map<string, int> SocIdsUsers;               //[users]->socketId
+vector<struct fileDetails> filedetails;
+unordered_map<string, vector<string>> pendingReq;
+
+int check(int exp, const char *msg)
+{
+    if (exp == SOCKETERROR)
+    {
+        perror(msg);
+        exit(1);
+    }
+    return exp;
+}
 int convertToInt(string st)
 {
     stringstream con(st);
@@ -89,15 +105,35 @@ void create_group(string gid, string ip, int port)
         cout << endl;
     }
 }
-int join_group(string gid)
+int join_group(string gid, string ip, int port)
 {
     string owner = groups[gid][0];
     int ownerSocId = SocIdsUsers[owner];
+    string uidReq = searchUser(port, ip);
+    pendingReq[gid].push_back(uidReq);
     return ownerSocId;
 }
-void accept_request(string gid, string uid)
+string accept_request(string gid, string uid, string uidOwn)
 {
-    groups[gid].push_back(uid);
+    string owner = groups[gid][0];
+    cout << "owner " << owner << endl;
+    if (owner == uidOwn)
+    {
+        for (auto it = pendingReq[gid].begin(); it != pendingReq[gid].end(); ++it)
+        {
+            if (*it == uid)
+            {
+                pendingReq[gid].erase(it);
+                break;
+            }
+        }
+        groups[gid].push_back(uid);
+        return "accepted";
+    }
+    else
+    {
+        return "you are not owner of the group";
+    }
 }
 void leave_group(string gid, string ip, int port)
 {
@@ -154,33 +190,90 @@ void logout(string ip, int port)
         cout << x.first << " " << x.second.first << " " << x.second.second << endl;
     }
 }
-void upload_file(string gid, string hashval, string ip, int port, string filename)
+string list_requests(string gid, string ip, int port)
+{
+    vector<string> reqlist = pendingReq[gid];
+    string userId = searchUser(port, ip);
+    string requests = "";
+    if (userId == groups[gid][0])
+    {
+        for (auto pai : reqlist)
+        {
+            requests = pai + " " + requests;
+            // cout << pai << endl;
+        }
+        return requests;
+    }
+    else
+        return "You are not owner of group";
+}
+string getFileName(string path)
+{
+    string dummy;
+    stringstream ss(path);
+    string intermediate;
+    while (getline(ss, intermediate, '/'))
+    {
+        dummy = intermediate;
+    }
+    return dummy;
+}
+
+void upload_file(string gid, string ip, int port, string filename, string bitmap)
 {
     string userId = searchUser(port, ip);
-    fileHash[filename] = hashval;
-    fileOwners[filename].push_back(userId);
+    // fileHash[filename] = hashval;
+    string chunkmap = "";
+    chunkmap = userId + "$" + bitmap;
+    struct fileDetails filed;
+    filed.gid = gid;
+    filed.fileOwners[filename].push_back(chunkmap);
+    filedetails.push_back(filed);
+    // cout << "chunkmap   " << chunkmap << endl;
 }
 string download_file(string gid, string filename)
 {
     string port;
-    string ip, hashval;
-    for (string userId : fileOwners[filename])
+    string ip;
+    string allfiles = "";
+    vector<string> ownermap;
+    for (auto p : filedetails)
     {
-        if (userGids[userId] == gid)
+        // cout<<"gid"<<p.gid<<" ";
+        if (p.gid == gid)
         {
-            ip = portIpUsers[userId].first;
-            port = to_string(portIpUsers[userId].second);
-            hashval = fileHash[filename];
+            for (auto chunkmap : p.fileOwners[filename])
+            {
+                // cout<<chunkmap<<" ";
+                ownermap.push_back(chunkmap);
+            }
         }
+        // cout<<endl;
     }
-    string res = ip + " " + port + " " + hashval;
-    return res;
+    for (string chunk : ownermap)
+    {
+        string owner = "";
+        int i = 0;
+        for (i = 0; i < chunk.size(); i++)
+        {
+            if (chunk[i] == '$')
+                break;
+            owner = owner + chunk[i];
+            cout << "chunk[i] " << chunk[i] << "owner  " << owner << endl;
+        }
+        ip = portIpUsers[owner].first;
+        port = to_string(portIpUsers[owner].second);
+        // cout<<ip<<port<<"  "<<chunk.substr(i,chunk.length()-1);
+        // cout<<endl;
+        allfiles = allfiles + " " + ip + ":" + port + chunk.substr(i, chunk.length() - 1);
+    }
+    return allfiles;
 }
 void *acceptConnection(void *arguments)
 {
     struct clientDetails *args = (struct clientDetails *)arguments;
     int clientSocD = args->socketId;
-    send(clientSocD, "client connection success", 25, 0);
+    send(clientSocD, "client connection success\n", 25, 0);
     while (1)
     {
         char data[1024] = {
@@ -191,6 +284,7 @@ void *acceptConnection(void *arguments)
         {
             cout << "something happened closing connection" << endl;
             close(clientSocD);
+            pthread_exit(NULL);
         }
         vector<string> command;
         istringstream ss(data);
@@ -228,12 +322,13 @@ void *acceptConnection(void *arguments)
             int port = convertToInt(command[3]);
             string ip = command[2];
             create_group(command[1], ip, port); //command[1] = gid
+            send(clientSocD, "create group successfully", 1024, 0);
         }
         else if (command[0] == "join_group")
         {
             int port = convertToInt(command[3]);
             string ip = command[2];
-            int ownSocId = join_group(command[1]);
+            int ownSocId = join_group(command[1], ip, port);
             string uidReq = searchUser(port, ip);
             string req = "peer " + uidReq + " " + "wants to join group" + " " + command[1];
             char reqData[1024] = {
@@ -246,7 +341,25 @@ void *acceptConnection(void *arguments)
         }
         else if (command[0] == "accept_request")
         {
-            accept_request(command[1], command[2]);
+            int port = convertToInt(command[4]);
+            string ip = command[3];
+            string gid = command[1];
+            string uid = command[2];
+            string uidown = searchUser(port, ip);
+            string dataToSend = accept_request(gid, uid, uidown);
+            char reqData[1024] = {
+                0,
+            };
+            strcpy(reqData, dataToSend.c_str());
+            if (dataToSend == "accepted")
+            {
+                int reqSocId = SocIdsUsers[uid];
+                send(reqSocId, reqData, 1024, 0);
+            }
+            else
+            {
+                send(clientSocD, reqData, 1024, 0);
+            }
         }
         else if (command[0] == "leave_group")
         {
@@ -258,7 +371,7 @@ void *acceptConnection(void *arguments)
         {
             int port = convertToInt(command[2]);
             string ip = command[1];
-            logout(ip, port); 
+            logout(ip, port);
         }
         else if (command[0] == "list_groups")
         {
@@ -269,30 +382,41 @@ void *acceptConnection(void *arguments)
             strcpy(reqData, dataToSend.c_str());
             send(clientSocD, reqData, 1024, 0);
         }
+        else if (command[0] == "list_requests")
+        {
+            int port = convertToInt(command[3]);
+            string ip = command[2];
+            string dataToSend = list_requests(command[1], ip, port);
+            char reqData[1024] = {
+                0,
+            };
+            strcpy(reqData, dataToSend.c_str());
+            send(clientSocD, reqData, 1024, 0);
+        }
         else if (command[0] == "upload_file")
         {
+            int port = convertToInt(command[4]);
+            string ip = command[3];
             //command[1] = gid command[2]=filename command[3]= hashvaloffile
-            // upload_file(command[1], command[3], ip, port, command[2]);
+            upload_file(command[2], ip, port, command[1], command[5]);
         }
         else if (command[0] == "download_file")
         {
             //command[1] = gid command[2]=filename
+            cout << "line 327" << command[1] << command[2] << endl;
             string dataToSend = download_file(command[1], command[2]);
+            char reqData[1024] = {
+                0,
+            };
+            dataToSend = "d" + dataToSend; //d ip:port$111000 ip:port$1111111
+            strcpy(reqData, dataToSend.c_str());
+            cout << "sending...   " << dataToSend << endl;
+            send(clientSocD, reqData, 1024, 0);
         }
-
         // cout << "line 79" << endl;
         cout << "line 252" << endl;
     }
     pthread_exit(NULL);
-}
-int check(int exp, const char *msg)
-{
-    if (exp == SOCKETERROR)
-    {
-        perror(msg);
-        exit(1);
-    }
-    return exp;
 }
 // void getPortandIp(char *argv[])
 void getPortandIp(string argv[], vector<string> &trackerdetails)

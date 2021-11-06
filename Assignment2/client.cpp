@@ -82,7 +82,7 @@ void getPortandIp(char *argv[], vector<string> &trackerdetails, int &port, strin
     }
     port = convertToInt(p);
 }
-void getConnection(int port, string ip)
+void getConnection(string ip,int port,string chunkmap)
 {
     int client_socd;
     struct sockaddr_in address;
@@ -97,17 +97,20 @@ void getConnection(int port, string ip)
     char data[1024] = {
         0,
     };
-    // cout<<"line 88"<<endl;
     recv(client_socd, data, 1024, 0);
-    // cout<<"line 89"<<endl;
     cout << data << endl;
-    string d;
-    getline(cin, d);
-    strcpy(data, d.c_str());
-    data[1024] = {
-        0,
-    };
-    send(client_socd, data, 1024, 0);
+    string mychunkmap = "";
+    for(int i=0;i<chunkmap.size();i++)
+        mychunkmap = mychunkmap+'0';
+    for(int i=0;i<chunkmap.size();i++)
+    {
+        cout<<"Requesting chunk 0";
+        send(client_socd,to_string(i).c_str(),1024,0);
+
+    }
+    
+
+
 }
 void *FromTracker(void *arguments)
 {
@@ -128,22 +131,56 @@ void *FromTracker(void *arguments)
         {
             received.push_back(inter);
         }
-        if (received[0] == "peer")
+        if (received[0] == "d")
         {
-            string uidReq = received[1];
-            string gidReq = received[received.size() - 1];
-            sem_wait(&x);
-            pendingReq[gidReq].push_back(uidReq);
-            sem_post(&x);
-        }
-        string dumm = data;
-        if (dumm == "2001")
-        {
+            string dumm = data;
             cout << "result" << dumm << endl;
-            getConnection(2001, "127.0.0.1");
+            int i=0;
+            string ip="";
+            for(i = 0;i<received[1].size();i++)
+            {
+                if(received[1][i] == ':')
+                    break;
+                ip = ip+received[1][i];
+            }
+            string portstr = "";
+            for(i = i+1;i<received[1].size();i++)
+            {
+                if(received[1][i] == '$')
+                    break;
+                portstr = portstr+received[1][i];
+            }
+            int port = convertToInt(portstr);
+            string chunkmap = received[1].substr(i+1,received[1].size()-1);
+            getConnection(ip,port,chunkmap);
         }
     }
     pthread_exit(NULL);
+}
+string getFileName(string path)
+{
+    string dummy;
+    stringstream ss(path);
+    string intermediate;
+    while (getline(ss, intermediate, '/'))
+    {
+        dummy = intermediate;
+    }
+    return dummy;
+}
+string getChunks(string filename)
+{
+    struct stat statbuf;
+    check((stat(filename.c_str(), &statbuf) == -1), "could not open file");
+    intmax_t len = (intmax_t)statbuf.st_size;
+    unsigned long chunks = (len / CHUNK_SIZE);
+    cout << len << "   " << chunks << endl;
+    string bitmap = "";
+    for (int i = 0; i < chunks; i++)
+        bitmap += '1';
+    if (len % CHUNK_SIZE != 0)
+        bitmap += '1';
+    return bitmap;
 }
 void *ToTracker(void *arguments)
 {
@@ -169,6 +206,10 @@ void *ToTracker(void *arguments)
              << setw(15) << left << "list_groups" << endl
              << setw(15) << left << "leave_group"
              << "<gid>" << endl
+             << setw(15) << left << "upload_file"
+             << "<filepath> <gic>" << endl
+             << setw(15) << left << "download_file"
+             << "<gid> <filename> <des_path>" << endl
              << setw(15) << left << "logout" << endl
              << "================================" << endl;
         char data[1024] = {
@@ -202,34 +243,38 @@ void *ToTracker(void *arguments)
         }
         else if (command[0] == "list_requests")
         {
-            string gid = command[1];
-            sem_wait(&x);
-            vector<string> reqlist = pendingReq[gid];
-            sem_post(&x);
-            for (auto pai : reqlist)
-            {
-                cout << pai << endl;
-            }
-            continue;
+            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
         }
         else if (command[0] == "accept_request")
         {
-            string gid = command[1];
-            string uid = command[2];
-            sem_wait(&x);
-            for (auto it = pendingReq[gid].begin(); it != pendingReq[gid].end(); ++it)
-            {
-                if (*it == uid)
-                {
-                    pendingReq[gid].erase(it);
-                    break;
-                }
-            }
-            sem_post(&x);
+            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
+            // string gid = command[1];
+            // string uid = command[2];
+            // sem_wait(&x);
+            // for (auto it = pendingReq[gid].begin(); it != pendingReq[gid].end(); ++it)
+            // {
+            //     if (*it == uid)
+            //     {
+            //         pendingReq[gid].erase(it);
+            //         break;
+            //     }
+            // }
+            // sem_post(&x);
         }
         else if (command[0] == "logout")
         {
             inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
+        }
+        else if (command[0] == "upload_file")
+        {
+            string chunkmap = getChunks(command[1]);
+            command[1] = getFileName(command[1]);
+            inpFromUser = command[0] + " " + command[1] + " " + command[2] + " " + args->ip + " " + to_string(args->port) + " " + chunkmap;
+        }
+        else if (command[0] == "download_file")
+        {
+            string des_path = command[3];
+            inpFromUser = command[0] + " " + command[1] + " " + command[2] + " " + args->ip + " " + to_string(args->port);
         }
         cout << "sending " << inpFromUser << endl;
         strcpy(data, inpFromUser.c_str());
@@ -277,32 +322,45 @@ void *acceptConnection(void *arguments)
     int port = args->arg1;
     int clientSocD = args->arg2;
     // cout << "line154" << endl;
-    send(clientSocD, "peer connection success", 1024, 0);
+    send(clientSocD,"sending you test.pdf",20,0);
+            cout<<"exiting..."<<endl;
+    
+    FILE *fp = fopen(filename.c_str(), "r+");
+
+		if (fp == NULL)
+		{
+			perror("file does not exist");
+			pthread_exit(NULL);
+		}
     // cout<<"line 159"<<endl;
-    while (1)
-    {
-        char data[1024] = {
-            0,
-        };
-        // cout<<"line 165"<<endl;
-        int nRet = recv(clientSocD, data, 1024, 0);
-        if (nRet == 0)
-        {
-            cout << "something happened closing connection" << endl;
-            close(clientSocD);
-        }
-        cout << data << endl;
-        string p = "";
-        vector<string> command;
-        istringstream ss(data);
-        string intermediate;
-        while (ss >> intermediate)
-        {
-            command.push_back(intermediate);
-        }
-        // for (int i = 0; i < command.size(); i++)
-        //     cout << command[i];
-    }
+    // while (1)
+    // {
+    //     char data[1024] = {
+    //         0,
+    //     };
+    //     // cout<<"line 165"<<endl;
+    //     int nRet = recv(clientSocD, data, 1024, 0);
+    //     if (nRet == 0)
+    //     {
+    //         cout << "something happened closing connection" << endl;
+    //         pthread_exit(NULL);
+    //         close(clientSocD);
+    //     }
+    //     cout << data << endl;
+    //     string p = "";
+    //     vector<string> command;
+    //     istringstream ss(data);
+    //     string intermediate;
+    //     while (ss >> intermediate)
+    //     {
+    //         command.push_back(intermediate);
+    //     }
+    //     if(command[0] == "test")
+    //     {
+    //         send(clientSocD,"sending you test.pdf",20,0);
+    //         cout<<"exiting..."<<endl;
+    //     }
+    // // }
     pthread_exit(NULL);
 }
 void startListening(int port, string ip1, int &server_socd, struct sockaddr_in &address)
