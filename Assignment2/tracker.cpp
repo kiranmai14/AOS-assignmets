@@ -13,7 +13,8 @@ struct clientLogin
 struct fileDetails
 {
     string gid;
-    unordered_map<string, vector<string>> fileOwners; //[filename]->->"uid$01010101" (vector)
+    unordered_map<string, vector<string>> fileOwners;          //[filename]->->"uid$01010101" (vector)
+    unordered_map<string, pair<string, string>> sha_filenames; //[filename]->sha
 };
 
 struct clientDetails
@@ -218,21 +219,40 @@ string getFileName(string path)
     }
     return dummy;
 }
-
-void upload_file(string gid, string ip, int port, string filename, string bitmap)
+string getChunks(string len)
+{
+    long long int size = convertToInt(len);
+    long long int no_of_chunks = size / CHUNK_SIZE;
+    string bitmap = "";
+    for (int i = 0; i < no_of_chunks; i++)
+        bitmap += '1';
+    if (size % CHUNK_SIZE != 0)
+        bitmap += '1';
+    return bitmap;
+}
+void upload_file(string gid, string ip, int port, string filename, string shaval, string len)
 {
     string userId = searchUser(port, ip);
     // fileHash[filename] = hashval;
     string chunkmap = "";
+    string bitmap = getChunks(len);
     chunkmap = userId + "$" + bitmap;
     struct fileDetails filed;
     filed.gid = gid;
+    cout << "bitmap"
+         << " " << bitmap << endl;
     filed.fileOwners[filename].push_back(chunkmap);
+    filed.sha_filenames[filename].first = shaval;
+    filed.sha_filenames[filename].second = len;
+    cout<<filed.sha_filenames[filename].first<<endl;
+    cout<<filed.sha_filenames[filename].second<<endl;
     filedetails.push_back(filed);
     // cout << "chunkmap   " << chunkmap << endl;
 }
 string download_file(string gid, string filename)
 {
+    string shaval = "";
+    string len = "";
     string port;
     string ip;
     string allfiles = "";
@@ -242,11 +262,14 @@ string download_file(string gid, string filename)
         // cout<<"gid"<<p.gid<<" ";
         if (p.gid == gid)
         {
+            shaval = p.sha_filenames[filename].first;
+            len = p.sha_filenames[filename].second;
             for (auto chunkmap : p.fileOwners[filename])
             {
                 // cout<<chunkmap<<" ";
                 ownermap.push_back(chunkmap);
             }
+            break;
         }
         // cout<<endl;
     }
@@ -265,8 +288,9 @@ string download_file(string gid, string filename)
         port = to_string(portIpUsers[owner].second);
         // cout<<ip<<port<<"  "<<chunk.substr(i,chunk.length()-1);
         // cout<<endl;
-        allfiles = allfiles + " " + ip + ":" + port + chunk.substr(i, chunk.length() - 1);
+        allfiles = ip + ":" + port + chunk.substr(i, chunk.length() - 1) + " " + allfiles;
     }
+    allfiles = allfiles + " " + shaval + " " + len; //ip:port$01010101 ip:port$01010101 ip:port$01010101 shaval sizeoffileinbytes
     return allfiles;
 }
 void *acceptConnection(void *arguments)
@@ -397,18 +421,18 @@ void *acceptConnection(void *arguments)
         {
             int port = convertToInt(command[4]);
             string ip = command[3];
-            //command[1] = gid command[2]=filename command[3]= hashvaloffile
-            upload_file(command[2], ip, port, command[1], command[5]);
+            //command[2] = gid command[1]=filename command[5]= hashvaloffile command[6]=sizeoffile
+            upload_file(command[2], ip, port, command[1], command[5], command[6]);
         }
         else if (command[0] == "download_file")
         {
             //command[1] = gid command[2]=filename
-            cout << "line 327" << command[1] << command[2] << endl;
+            // cout << "line 327" << command[1] << command[2] << endl;
             string dataToSend = download_file(command[1], command[2]);
             char reqData[1024] = {
                 0,
             };
-            dataToSend = "d" + dataToSend; //d ip:port$111000 ip:port$1111111
+            dataToSend = "d" + dataToSend + " " + command[2]; //d ip:port$111000 ip:port$1111111 shaval size filename
             strcpy(reqData, dataToSend.c_str());
             cout << "sending...   " << dataToSend << endl;
             send(clientSocD, reqData, 1024, 0);

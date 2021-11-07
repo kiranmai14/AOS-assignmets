@@ -20,10 +20,11 @@
 #include <queue>
 #include <semaphore.h>
 #include <sys/stat.h>
+#include <openssl/sha.h>
 
 #define REGISTERED "Registered Successfully"
 #define LOGGEDIN "LoggedIn Successfully"
 #define LOGGEDIN "LoggedIn Successfully"
-#define CHUNK_SIZE 512000
+#define CHUNK_SIZE 524288
 
 #define SOCKETERROR (-1)
