@@ -15,6 +15,7 @@ struct fileDetails
     string gid;
     unordered_map<string, vector<string>> fileOwners;          //[filename]->->"uid$01010101" (vector)
     unordered_map<string, pair<string, string>> sha_filenames; //[filename]->sha
+    unordered_map<string, string> filenames_paths;
 };
 
 struct clientDetails
@@ -230,7 +231,7 @@ string getChunks(string len)
         bitmap += '1';
     return bitmap;
 }
-void upload_file(string gid, string ip, int port, string filename, string shaval, string len)
+void upload_file(string gid, string ip, int port, string filename, string shaval, string len,string path)
 {
     string userId = searchUser(port, ip);
     // fileHash[filename] = hashval;
@@ -244,8 +245,9 @@ void upload_file(string gid, string ip, int port, string filename, string shaval
     filed.fileOwners[filename].push_back(chunkmap);
     filed.sha_filenames[filename].first = shaval;
     filed.sha_filenames[filename].second = len;
-    cout<<filed.sha_filenames[filename].first<<endl;
-    cout<<filed.sha_filenames[filename].second<<endl;
+    filed.filenames_paths[filename] = path;
+    // cout << filed.sha_filenames[filename].first << endl;
+    cout << filed.filenames_paths[filename]<< endl;
     filedetails.push_back(filed);
     // cout << "chunkmap   " << chunkmap << endl;
 }
@@ -256,6 +258,7 @@ string download_file(string gid, string filename)
     string port;
     string ip;
     string allfiles = "";
+    string fullpath = "";
     vector<string> ownermap;
     for (auto p : filedetails)
     {
@@ -264,6 +267,7 @@ string download_file(string gid, string filename)
         {
             shaval = p.sha_filenames[filename].first;
             len = p.sha_filenames[filename].second;
+            fullpath = p.filenames_paths[filename];
             for (auto chunkmap : p.fileOwners[filename])
             {
                 // cout<<chunkmap<<" ";
@@ -290,7 +294,7 @@ string download_file(string gid, string filename)
         // cout<<endl;
         allfiles = ip + ":" + port + chunk.substr(i, chunk.length() - 1) + " " + allfiles;
     }
-    allfiles = allfiles + " " + shaval + " " + len; //ip:port$01010101 ip:port$01010101 ip:port$01010101 shaval sizeoffileinbytes
+    allfiles = allfiles + " " + shaval + " " + len+" "+fullpath; //ip:port$01010101 ip:port$01010101 ip:port$01010101 shaval sizeoffileinbytes
     return allfiles;
 }
 void *acceptConnection(void *arguments)
@@ -422,19 +426,19 @@ void *acceptConnection(void *arguments)
             int port = convertToInt(command[4]);
             string ip = command[3];
             //command[2] = gid command[1]=filename command[5]= hashvaloffile command[6]=sizeoffile
-            upload_file(command[2], ip, port, command[1], command[5], command[6]);
+            upload_file(command[2], ip, port, command[1], command[5], command[6],command[7]);
         }
         else if (command[0] == "download_file")
         {
-            //command[1] = gid command[2]=filename
+            //command[1] = gid command[2]=filename commad[5] = destpath
             // cout << "line 327" << command[1] << command[2] << endl;
             string dataToSend = download_file(command[1], command[2]);
             char reqData[1024] = {
                 0,
             };
-            dataToSend = "d" + dataToSend + " " + command[2]; //d ip:port$111000 ip:port$1111111 shaval size filename
+            dataToSend = "d " + dataToSend + " " + command[1] + " " + command[2]+" "+command[5]; //d ip:port$111000 ip:port$1111111 shaval size gid filename despath
             strcpy(reqData, dataToSend.c_str());
-            cout << "sending...   " << dataToSend << endl;
+            // cout << "sending...   " << dataToSend << endl;
             send(clientSocD, reqData, 1024, 0);
         }
         // cout << "line 79" << endl;
