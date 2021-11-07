@@ -533,7 +533,7 @@ void *acceptConnection(void *arguments)
 
             // fseek(fp, chunkno * CHUNK_SIZE, SEEK_SET);
             cout<<offset<<endl;
-           long bytesReadFromFile =  pread(fd, file_chunk, CHUNK_SIZE, offset);
+           long bytesReadFromFile =  pread(fd, file_chunk, piece_size, offset);
             // long bytesReadFromFile = fread(file_chunk, sizeof(char), CHUNK_SIZE, fp);
             cout << "bytes read " << bytesReadFromFile << " "
                  << "sending chunk " << chunkno << endl;
