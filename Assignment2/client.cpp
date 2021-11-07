@@ -200,6 +200,7 @@ void getConnection(string ip, int port, string chunkmap, string filename, string
     // fclose(temp);
     long long len = convertToInt(size);
     ftruncate(fd, len);
+     long long off = 0;
     for (int i = 0; i < chunkmap.size(); i++)
     {
         cout << "Requesting chunk " << i << endl;
@@ -216,32 +217,37 @@ void getConnection(string ip, int port, string chunkmap, string filename, string
         recv(client_socd, data, 32, 0);
         long long pieceSize = convertToInt(data);
 
-        FILE *fd = fopen(filepath.c_str(), "r+");
-        fseek(fd, i * CHUNK_SIZE, SEEK_SET);
+        // FILE *fd = fopen(filepath.c_str(), "r+");
+        // fseek(fd, i * CHUNK_SIZE, SEEK_SET);
+        // writing to file
+        int fp = 0;
+        check(fp = open(filepath.c_str(), O_RDWR), "error in opening file");
+    
         long long totBytesRead = 0;
         char file_chunk[CHUNK_SIZE];
+       
         while (totBytesRead < pieceSize)
         {
             long bytesRead = recv(client_socd, file_chunk, pieceSize - totBytesRead, 0);
             cout << "bytes read =" << bytesRead << endl;
             totBytesRead += bytesRead;
-            fwrite(file_chunk, sizeof(char), bytesRead, fd);
+            cout<<off<<endl;
+            pwrite(fp, file_chunk, bytesRead, off);
+            off = off + bytesRead;
+            // fwrite(file_chunk, sizeof(char), bytesRead, fd);
             // fseek(fd, bytesRead, SEEK_CUR);
             // cout<<readBuffer<<endl;
             bzero(file_chunk, sizeof(file_chunk));
         }
-        fclose(fd);
+        close(fp);
+        // fclose(fd);
         cout << "received chunk" << i << endl;
         sleep(1);
 
         // off_t offset = i * CHUNK_SIZE;
         // recv(client_socd, file_chunk, sizeof(file_chunk), 0);
 
-        // writing to file
-        // int fp = 0;
-        // check(fp = open(filepath.c_str(), O_RDWR), "error in opening file");
-        // check(pwrite(fp, file_chunk, sizeof(file_chunk), offset), "caanot able to write");
-        // close(fp);
+        
     }
 }
 void *FromTracker(void *arguments)
@@ -503,12 +509,15 @@ void *acceptConnection(void *arguments)
                 perror("file does not exist");
                 pthread_exit(NULL);
             }
-            // check(fp = open(filepath.c_str(), O_RDWR), "error in opening file");
+            
             long piece_size = 0;
             fseek(fp, chunkno * CHUNK_SIZE, SEEK_SET);
             long piece_begin = ftell(fp);
             fseek(fp, 0, SEEK_END);
             long file_end = ftell(fp);
+             fclose(fp);
+             int fd = 0;
+             check(fd = open(filepath.c_str(), O_RDWR), "error in opening file");
             if (file_end > piece_begin + CHUNK_SIZE - 1)
             {
                 piece_size = CHUNK_SIZE;
@@ -520,13 +529,17 @@ void *acceptConnection(void *arguments)
             send(clientSocD, to_string(piece_size).c_str(), 32, 0);
             char file_chunk[CHUNK_SIZE];
             off_t offset = chunkno * CHUNK_SIZE;
+            // long long offset  = 0; 
 
-            fseek(fp, chunkno * CHUNK_SIZE, SEEK_SET);
-            long bytesReadFromFile = fread(file_chunk, sizeof(char), CHUNK_SIZE, fp);
+            // fseek(fp, chunkno * CHUNK_SIZE, SEEK_SET);
+            cout<<offset<<endl;
+           long bytesReadFromFile =  pread(fd, file_chunk, CHUNK_SIZE, offset);
+            // long bytesReadFromFile = fread(file_chunk, sizeof(char), CHUNK_SIZE, fp);
             cout << "bytes read " << bytesReadFromFile << " "
                  << "sending chunk " << chunkno << endl;
+            // offset = offset + bytesReadFromFile;
             send(clientSocD, file_chunk, bytesReadFromFile, 0);
-            fclose(fp);
+           
             sleep(1);
             // pread(fp, file_chunk, sizeof(file_chunk), offset);
 
