@@ -4,65 +4,90 @@
 #include "headers.h"
 
 using namespace std;
-
-void getSHA(string filepath)
+struct fileDetails
 {
-    vector<string> piecewiseSHA;
-    FILE *fp = NULL;
-    fp = fopen(filepath.c_str(), "r+");
-    if (fp == NULL)
+    string gid;
+    unordered_map<string, vector<string>> fileOwners;          //[filename]->->"uid$01010101" (vector)
+    unordered_map<string, pair<string, string>> sha_filenames; //[filename]->sha
+    // unordered_map<string, vector<string>> filenames_paths;
+};
+vector<struct fileDetails> filedetails;
+
+void upload_file(string gid, string ip, int port, string filename, string shaval, string len, string filepath)
+{
+    string userId = "A";
+    // fileHash[filename] = hashval;
+    string chunkmap = "";
+    string bitmap = "123456";
+    chunkmap = userId + "$" + bitmap;
+    bool flag = 0;
+
+    vector<struct fileDetails> :: iterator it;
+    for(it = filedetails.begin();it!=filedetails.end();it++)
     {
-        perror("");
-        cout << "ERROR" << endl;
-        exit(-1);
-    }
-    // getting file size
-    struct stat statbuf;
-    stat(filepath.c_str(), &statbuf);
-    intmax_t len = (intmax_t)statbuf.st_size;
-
-    long chunks = (len / (512*1024));
-    cout << len << "   " << chunks << endl;
-    if (len % CHUNK_SIZE != 0)
-        chunks = chunks + 1;
-
-    unsigned char sha_of_file[20];
-    unsigned char file_binary[CHUNK_SIZE];
-
-    bzero(file_binary, sizeof(file_binary));
-    bzero(sha_of_file, sizeof(sha_of_file));
-
-    char encryptedText[40];
-    int n = 0;
-    // for (int j = 0; j < chunks; j++)
-    // {
-        int j = 1;
-        while ((n = fread(file_binary, 1, sizeof(file_binary), fp)) > 0)
+        if((*it).gid == gid)
         {
-
-            SHA1(file_binary, n, sha_of_file);
-
-            for (int i = 0; i < 20; i++)
-            { //convert to hex rep
-                sprintf(encryptedText + 2 * i, "%02x", sha_of_file[i]);
-            }
-            cout << encryptedText << " "<<j<<"\n";
-            j++;
-            bzero(encryptedText, sizeof(encryptedText));
-            bzero(file_binary, CHUNK_SIZE); //reset buffer
-            bzero(sha_of_file, sizeof(sha_of_file));
+             flag = 1;
+            (*it).fileOwners[filename].push_back(chunkmap);
+            (*it).sha_filenames[filename].first = shaval;
+            (*it).sha_filenames[filename].second = len;
         }
+    }
+
+    // for (struct fileDetails p : filedetails)
+    // {
+    //     if (p.gid == gid)
+    //     {
+    //         flag = 1;
+    //         unordered_map<string, vector<string>> temp = p.fileOwners;
+    //         temp[filename].push_back(chunkmap);
+    //         p.fileOwners = temp;
+    //         // p.fileOwners[filename].push_back(chunkmap);
+    //         p.sha_filenames[filename].first = shaval;
+    //         p.sha_filenames[filename].second = len;
+    //     }
     // }
+
+    if (!flag)
+    {
+        struct fileDetails filed;
+        filed.gid = gid;
+
+        unordered_map<string, vector<string>> unmap;
+        vector<string> v;
+        v.push_back(chunkmap);
+        unmap[filename] = v;
+        filed.fileOwners = unmap;
+
+        unordered_map<string, pair<string, string>> shamap;
+        pair<string, string> p;
+        p.first = shaval;
+        p.second = len;
+        shamap[filename] = p;
+        filed.sha_filenames = shamap;
+        filedetails.push_back(filed);
+    }
 }
+
 int main()
 {
 
-    // getSHA("/home/kiranmai/IIIT/AOS/Assignment2/node1/test.pdf");
-    int no_of_chunks = 10;
-    vector<unordered_map<string,int>> chunkpeerinfo(10);
-
-
-    getSHA("/home/kiranmai/IIIT/AOS/Assignment2/node1/test.pdf");
- 
+    upload_file("1", "127.0.0.1", 4000, "test.pdf", "sh", "23455", "/home/kiran");
+    upload_file("1", "127.0.0.1", 4000, "test.pdf", "sh", "23455", "/home/kiran");
+    upload_file("1", "127.0.0.1", 4000, "test2.pdf", "sh", "23455", "/home/kiran");
+    string gid ="1";
+    for (auto p : filedetails)
+    {
+        if (gid == p.gid)
+        {
+            for (auto g : p.fileOwners)
+            {
+                for (auto st : g.second)
+                {
+                    cout << st << endl;
+                }
+            }
+        }
+    }
     return 0;
 }

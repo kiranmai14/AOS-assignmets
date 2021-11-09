@@ -252,26 +252,100 @@ void upload_file(string gid, string ip, int port, string filename, string shaval
     string chunkmap = "";
     string bitmap = getChunks(len);
     chunkmap = userId + "$" + bitmap;
-    struct fileDetails filed;
-    filed.gid = gid;
-    cout << "bitmap"
-         << " " << bitmap << endl;
-    filed.fileOwners[filename].push_back(chunkmap);
-    filed.sha_filenames[filename].first = shaval;
-    filed.sha_filenames[filename].second = len;
-    // filed.filenames_paths[filename].push_back(path);
 
-    cout << filed.sha_filenames[filename].first << endl;
-    cout << filed.sha_filenames[filename].second << endl;
+    // cout << "line 257 chunkmap"
+    //      << " " << chunkmap << endl;
 
-    struct filepaths fpath;
-    fpath.uid = userId;
-    fpath.filenames_paths[filename] = filepath;
-    filenameWithPaths.push_back(fpath);
-    // cout << filed.filenames_paths[filename] << endl;
-    filedetails.push_back(filed);
+    bool flag = 0;
+    // for (struct fileDetails p : filedetails)
+    // {
+    //     if (p.gid == gid)
+    //     {
+    //         p.fileOwners[filename].push_back(chunkmap);
+    //         p.sha_filenames[filename].first = shaval;
+    //         p.sha_filenames[filename].second = len;
+    //     }
+    // }
 
-    // cout << "chunkmap   " << chunkmap << endl;
+    // for (struct fileDetails p : filedetails)
+    // {
+    //     cout << "printing after adding " << gid << endl;
+    //     if (p.gid == gid)
+    //     {
+    //         for (string x : p.fileOwners[filename])
+    //         {
+    //             cout << "line 279" << x << endl;
+    //         }
+    //         cout << "line 281" << p.sha_filenames[filename].first << endl;
+    //         cout << "line 282" << p.sha_filenames[filename].second << endl;
+    //     }
+    // }
+    vector<struct fileDetails>::iterator it;
+    for (it = filedetails.begin(); it != filedetails.end(); it++)
+    {
+        if ((*it).gid == gid)
+        {
+            flag = 1;
+            (*it).fileOwners[filename].push_back(chunkmap);
+            (*it).sha_filenames[filename].first = shaval;
+            (*it).sha_filenames[filename].second = len;
+        }
+    }
+
+    if (!flag)
+    {
+
+        cout << "In creating struct " << endl;
+        struct fileDetails filed;
+        filed.gid = gid;
+
+        unordered_map<string, vector<string>> unmap;
+        vector<string> v;
+        v.push_back(chunkmap);
+        unmap[filename] = v;
+        filed.fileOwners = unmap;
+
+        unordered_map<string, pair<string, string>> shamap;
+        pair<string, string> p;
+        p.first = shaval;
+        p.second = len;
+        shamap[filename] = p;
+        filed.sha_filenames = shamap;
+
+        filedetails.push_back(filed);
+    }
+    vector<struct filepaths>::iterator it2;
+    bool flag2 = 0;
+    for (it2 = filenameWithPaths.begin(); it2 != filenameWithPaths.end(); it2++)
+    {
+        if ((*it2).uid == userId)
+        {
+            flag2 = 1;
+            cout << "line 324"
+                 << "inserting";
+            (*it2).filenames_paths[filename] = filepath;
+        }
+    }
+
+    // for (struct filepaths p : filenameWithPaths)
+    // {
+    //     if (p.uid == userId)
+    //     {
+    //         flag2 = 1;
+    //         p.filenames_paths[filename] = filepath;
+    //     }
+    // }
+    if (!flag2)
+    {
+        struct filepaths fpath;
+        fpath.uid = userId;
+
+        unordered_map<string, string> fmap;
+        fmap[filename] = filepath;
+
+        fpath.filenames_paths = fmap;
+        filenameWithPaths.push_back(fpath);
+    }
 }
 string getPath(string uid, string fname)
 {
@@ -281,7 +355,7 @@ string getPath(string uid, string fname)
         // {
         //     return p->filenames_paths[fname];
         // }
-        cout<<p.uid<<" ";
+        cout << p.uid << " ";
         if (p.uid == uid)
         {
             return p.filenames_paths[fname];
@@ -310,10 +384,10 @@ string download_file(string gid, string filename)
             // fullpath = p.filenames_paths[filename];
             for (auto chunkmap : p.fileOwners[filename])
             {
-                cout << chunkmap << " ";
+                cout << "line 313 in download" << chunkmap << endl;
                 ownermap.push_back(chunkmap);
             }
-            break;
+            // break;
         }
         cout << endl;
     }
@@ -323,6 +397,7 @@ string download_file(string gid, string filename)
         string owner = "";
         string uid = "";
         int i = 0;
+        cout << "line 326 " << chunk.size();
         for (i = 0; i < chunk.size(); i++)
         {
             if (chunk[i] == '$')
@@ -338,11 +413,13 @@ string download_file(string gid, string filename)
             cout << "line 293" << endl;
             cout << ip << port << "  " << chunk.substr(i, chunk.length() - 1);
             cout << endl;
-            string fpath = getPath(owner,filename);
+            string fpath = getPath(owner, filename);
             allfiles = fpath + "#" + ip + ":" + port + chunk.substr(i, chunk.length() - 1) + " " + allfiles;
         }
     }
+
     allfiles = allfiles + " " + shaval + " " + len; //uid#ip:port$01010101 ip:port$01010101 ip:port$01010101 shaval sizeoffileinbytes
+    cout << allfiles << endl;
     return allfiles;
 }
 void detailsOfChunk(string ip, string port, string gid, string filename, string chunkmap)
@@ -356,6 +433,8 @@ void detailsOfChunk(string ip, string port, string gid, string filename, string 
         {
             for (auto it = p.fileOwners[filename].begin(); it != p.fileOwners[filename].end(); ++it)
             {
+                cout << "in details of chunk"
+                     << " " << endl;
                 std::string::size_type pos = (*it).find('$');
                 string up = (*it).substr(0, pos);
                 if (up == uid)
@@ -372,37 +451,29 @@ void detailsOfChunk(string ip, string port, string gid, string filename, string 
         }
     }
 }
-void putD(string ip, string port, string gid, string filename,string filepath)
+void putD(string ip, string port, string gid, string filename, string filepath)
 {
     // string uid = searchUser(convertToInt(port), ip);
     bool flag = 0;
     downloading[gid].push_back(filename);
 
-     string userId = searchUser(convertToInt(port), ip);
+    string userId = searchUser(convertToInt(port), ip);
     struct filepaths fpath;
     fpath.uid = userId;
     fpath.filenames_paths[filename] = filepath;
     filenameWithPaths.push_back(fpath);
-    // for (auto p : downloadinfo)
-    // {
-    //     cout << "gid" << p.gid << "line 330 ";
-    //     if (p.gid == gid)
-    //     {
-    //         flag = 1;
-    //         p.downloading[filename].push_back(uid);
-    //         break;
-    //     }
-    // }
-    // if (!flag)
-    // {
-    //     struct downloads downd;
-    //     downd.gid = gid;
-    //     cout << "gid"
-    //          << "line 342" << endl;
-    //     downd.downloading[filename].push_back(uid);
-    //     downd.completed[filename].push_back("x");
-    //     downloadinfo.push_back(downd);
-    // }
+
+    string chunk = "111111111111111111";
+    vector<struct fileDetails> :: iterator it;
+    string chunkmap = userId+"$"+chunk;
+    for (it = filedetails.begin(); it != filedetails.end(); it++)
+    {
+        if ((*it).gid == gid)
+        {
+            flag = 1;
+            (*it).fileOwners[filename].push_back(chunkmap);
+        }
+    }
 }
 void insertIntocom(string gid, string uid, string filename)
 {
@@ -571,12 +642,17 @@ string list_files(string gid)
     {
         if (gid == p.gid)
         {
+            p.fileOwners["test.pdf"].push_back("abc$10000");
             cout << "line 380" << endl;
             for (auto g : p.fileOwners)
             {
+                for (auto st : g.second)
+                {
+                    cout << st << endl;
+                }
                 val = g.first + "\n" + val;
+                cout << "line 617  " << g.first << endl;
             }
-            break;
         }
     }
     cout << "line 388" << endl;
@@ -729,7 +805,10 @@ void *acceptConnection(void *arguments)
             char reqData[1024] = {
                 0,
             };
-            dataToSend = "d " + dataToSend + " " + command[1] + " " + command[2] + " " + command[5]; //d uid#ip:port$111000 uid#ip:port$1111111 shaval size gid filename despath
+            if (dataToSend.size() == 0)
+                dataToSend = "no file found";
+            else
+                dataToSend = "d " + dataToSend + " " + command[1] + " " + command[2] + " " + command[5]; //d uid#ip:port$111000 uid#ip:port$1111111 shaval size gid filename despath
             strcpy(reqData, dataToSend.c_str());
             cout << "sending...   " << dataToSend << endl;
             send(clientSocD, reqData, 1024, 0);
@@ -742,7 +821,7 @@ void *acceptConnection(void *arguments)
         else if (command[0] == "downloading")
         {
             cout << data << endl;
-            putD(command[1], command[2], command[3], command[4],command[5]);
+            putD(command[1], command[2], command[3], command[4], command[5]);
         }
         else if (command[0] == "completed")
         {

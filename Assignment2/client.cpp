@@ -267,8 +267,7 @@ void *getConnection(void *args)
     memset(&address.sin_zero, 0, sizeof(address.sin_zero));
     check((connect(client_socd, (struct sockaddr *)&address, sizeof(address))), "connection with peer failed");
 
-    cout << "clientSocD    " << client_socd << endl;
-    fflush(stdout);
+    // cout << "clientSocD    " << client_socd << endl;
     char data[1024] = {
         0,
     };
@@ -298,31 +297,32 @@ void *getConnection(void *args)
     //     0,
     // };
     string filepath = despath + filename;
-    long long len = convertToInt(size);
+    // long long len = convertToInt(size);
 
-    long long piece_begin = chunkno * CHUNK_SIZE;
-    long long pieceSize = 0;
-    if (len > piece_begin + CHUNK_SIZE - 1)
-    {
-        pieceSize = CHUNK_SIZE;
-    }
-    else
-    {
-        pieceSize = len - piece_begin;
-    }
+    // long long piece_begin = chunkno * CHUNK_SIZE;
+    // long long pieceSize = 0;
+    // if (len > piece_begin + CHUNK_SIZE - 1)
+    // {
+    //     pieceSize = CHUNK_SIZE;
+    // }
+    // else
+    // {
+    //     pieceSize = len - piece_begin;
+    // }
 
     // cout << "requesting " << chunkno << "from   " << ip << ":" << to_string(port) << endl;
     data[1024] = {
         0,
     };
-    string tosend = "requesting " + to_string(chunkno) + " " + gid + " " + filename + " " + srcpath + " " + to_string(pieceSize);
+    string tosend = "requesting " + to_string(chunkno) + " " + gid + " " + filename + " " + srcpath;
     strcpy(data, tosend.c_str());
     send(client_socd, data, 1024, 0);
-    // data[1024] = {
-    //     0,
-    // };
+    data[1024] = {
+        0,
+    };
     // receiving
-    // recv(client_socd, data, 32, 0);
+    recv(client_socd, data, 32, 0);
+    long long pieceSize = convertToInt(data);
 
     // cout << "piecesize    " << pieceSize<<"  " <<chunkno<< endl;
 
@@ -330,34 +330,35 @@ void *getConnection(void *args)
     // recv(client_socd, sha_of_piece, 40, 0);
     // string sha = sha_of_piece;
 
-    // int fp = 0;
-    // check(fp = open(filepath.c_str(), O_RDWR), "error in opening file");
-    FILE *fp = fopen(filepath.c_str(), "r+");
-    if (fp == NULL)
-    {
-        cout << "line 947" << endl;
-        perror("file does not exist");
-        pthread_exit(NULL);
-    }
-    fseek(fp, chunkno * CHUNK_SIZE, SEEK_SET);
+    int fp = 0;
+    check(fp = open(filepath.c_str(), O_RDWR), "error in opening file");
+    // FILE *fp = fopen(filepath.c_str(), "r+");
+    // if (fp == NULL)
+    // {
+    //     cout << "line 947" << endl;
+    //     perror("file does not exist");
+    //     pthread_exit(NULL);
+    // }
+    // fseek(fp, chunkno * CHUNK_SIZE, SEEK_SET);
     long long totBytesRead = 0;
     char *file_chunk = new char[pieceSize];
     bzero(file_chunk, sizeof(file_chunk));
     long long off = chunkno * CHUNK_SIZE;
 
-    cout << "offset " << chunkno << " " << off << endl;
+    // cout << "offset " << chunkno << " " << off << endl;
 
     while (totBytesRead < pieceSize)
     {
         bzero(file_chunk, sizeof(file_chunk));
         long bytesRead = recv(client_socd, file_chunk, pieceSize - totBytesRead, 0);
         totBytesRead += bytesRead;
-        // pwrite(fp, file_chunk, bytesRead, off);
-        fwrite(file_chunk, sizeof(char), bytesRead, fp);
-        fseek(fp, bytesRead, SEEK_CUR);
-        // off = off + bytesRead;
+        pwrite(fp, file_chunk, bytesRead, off);
+        // fwrite(file_chunk, sizeof(char), bytesRead, fp);
+        // fseek(fp, bytesRead, SEEK_CUR);
+        off = off + bytesRead;
     }
-    fclose(fp);
+    close(fp);
+    // fclose(fp);
 
     cout << "bytes received " << chunkno << " " << (totBytesRead) << endl;
 
@@ -376,7 +377,7 @@ void *getConnection(void *args)
     // {
     //     cout << "sha not matching for chunk " << chunkno << endl;
     // }
-    // close(fp);
+    
 
     // cout << "received chunk" << chunkno << endl;
     // sleep(2);
@@ -633,6 +634,7 @@ vector<pair<string, int>> givepeerinfo(vector<string> peerinfo, vector<string> &
     {
         int len_of_peerscount = chunkpeerinfo[i].size();
         int random = rand() % len_of_peerscount;
+        // cout<<"random "<<random<<" "<<len_of_peerscount<<endl;
         selectedpeers[i] = chunkpeerinfo[i][random];
         pair<string, int> p = chunkpeerinfo[i][random];
         string user = searchUser(uidportIp, p.second, p.first);
@@ -737,7 +739,7 @@ void *FromTracker(void *arguments)
                 dinfo[i].despath = despath;
                 dinfo[i].srcpath = userinfo[i];
                 dinfo[i].chunkno = i;
-                // cout<<userinfo[i]<<" "<<despath<<endl;
+                // cout<<userinfo[i]<<despath<<endl;
                 // cout << selectedpeers[i].first << " " << selectedpeers[i].second << endl;
             }
             string filepath = despath + filename;
@@ -748,7 +750,8 @@ void *FromTracker(void *arguments)
                 perror("File creation error.");
             }
             long long len = convertToInt(size);
-            // ftruncate(fd, len);
+            ftruncate(fd, len);
+            
             string toserverd = "downloading " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename + " " + filepath;
             data[1024] = {
                 0,
@@ -985,7 +988,7 @@ void *acceptConnection(void *arguments)
     struct arg_struct_cli *args = (struct arg_struct_cli *)arguments;
     int port = args->arg1;
     int clientSocD = args->arg2;
-    cout << "clientSocD    " << clientSocD << endl;
+    // cout << "clientSocD    " << clientSocD << endl;
     // fflush(stdout);
     sleep(2);
     // while (1)
@@ -1028,7 +1031,7 @@ void *acceptConnection(void *arguments)
         string gid = received[2];
         string filename = received[3];
         string filepath = received[4];
-        long long piece_size = convertToInt(received[5]);
+        // long long piece_size = 0;
         // cout << piece_size << endl;
         // cout << chunkno << endl;
         // int fp = 0;
@@ -1041,26 +1044,28 @@ void *acceptConnection(void *arguments)
             pthread_exit(NULL);
         }
 
-        // long piece_size = 0;
+        long piece_size = 0;
         fseek(fp, chunkno * CHUNK_SIZE, SEEK_SET);
-        // long piece_begin = ftell(fp);
-        // fseek(fp, 0, SEEK_END);
-        // long file_end = ftell(fp);
-        // fclose(fp);
+        long piece_begin = ftell(fp);
+        fseek(fp, 0, SEEK_END);
+        long file_end = ftell(fp);
+        fclose(fp);
 
-        // if (file_end > piece_begin + CHUNK_SIZE - 1)
-        // {
-        //     piece_size = CHUNK_SIZE;
-        // }
-        // else
-        // {
-        //     piece_size = file_end - piece_begin;
-        // }
-        // cout<<"piecesize" <<piece_size<<endl;
-        // send(clientSocD, to_string(piece_size).c_str(), 32, 0);
+        if (file_end > piece_begin + CHUNK_SIZE - 1)
+        {
+            piece_size = CHUNK_SIZE;
+        }
+        else
+        {
+            piece_size = file_end - piece_begin;
+        }
+        // cout<<"piecesize" <<piece_size <<"of chunk "<<chunkno<<endl;
+        send(clientSocD, to_string(piece_size).c_str(), 32, 0);
+
+
 
         int fd = 0;
-        // check(fd = open(filepath.c_str(), O_RDWR), "error in opening file");
+        check(fd = open(filepath.c_str(), O_RDWR), "error in opening file");
         char *file_chunk = new char[piece_size];
         bzero(file_chunk, sizeof(file_chunk));
         off_t offset = chunkno * CHUNK_SIZE;
@@ -1068,9 +1073,9 @@ void *acceptConnection(void *arguments)
 
         // fseek(fp, chunkno * CHUNK_SIZE, SEEK_SET);
         // cout << offset << endl;
-        // cout << "sending " << chunkno << " " << piece_size << endl;
-        // long long bytesReadFromFile = pread(fd, file_chunk, piece_size, offset);
-        // close(fd);
+        cout << "sending " << chunkno << " " << piece_size << endl;
+        long long bytesReadFromFile = pread(fd, file_chunk, CHUNK_SIZE, offset);
+        close(fd);
 
         // string sha_of_piece = getpiecesha(file_chunk, bytesReadFromFile);
         // string sha_of_piece = recvsha(filepath, piece_size, offset);
@@ -1080,7 +1085,7 @@ void *acceptConnection(void *arguments)
         // strcpy(shachar, sha_of_piece.c_str());
         // // cout << "SHA   " << shachar << endl;
         // send(clientSocD, shachar, sizeof(shachar), 0);
-        long bytesReadFromFile = fread(file_chunk, sizeof(char), CHUNK_SIZE, fp);
+        // long bytesReadFromFile = fread(file_chunk, sizeof(char), piece_size, fp);
         cout << "bytes read " << bytesReadFromFile << " " << chunkno << endl;
         //      << "sending chunk " << chunkno << endl;
         // offset = offset + bytesReadFromFile;
@@ -1094,9 +1099,9 @@ void *acceptConnection(void *arguments)
             0,
         };
         cout << "exiting from  "
-             << " " << clientSocD << endl;
+             << " " << chunkno << endl;
         close(clientSocD);
-        fclose(fp);
+       
         free(file_chunk);
         pthread_exit(NULL);
         // pread(fp, file_chunk, sizeof(file_chunk), offset);
@@ -1147,7 +1152,8 @@ void covertAsServer(int cliport, string ip)
         args[i].arg2 = clientSocD;
         // cout<<"clientSocD    " <<clientSocD<<" "<<i<<endl;
         // cout<<"creating thread "<<i<<endl;
-        check(pthread_create(&tid[i++], NULL, acceptConnection, (void *)&args[i]), "Failed to create thread");
+        check(pthread_create(&tid[i], NULL, acceptConnection, (void *)&args[i]), "Failed to create thread");
+        i++;
         // cout<<"line 217"<<endl;
         if (i >= 50)
         {
