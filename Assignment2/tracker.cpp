@@ -15,9 +15,20 @@ struct fileDetails
     string gid;
     unordered_map<string, vector<string>> fileOwners;          //[filename]->->"uid$01010101" (vector)
     unordered_map<string, pair<string, string>> sha_filenames; //[filename]->sha
+    // unordered_map<string, vector<string>> filenames_paths;
+};
+struct filepaths
+{
+    string uid;
     unordered_map<string, string> filenames_paths;
 };
-
+vector<struct filepaths> filenameWithPaths;
+// struct downloads
+// {
+//     string gid;
+//     unordered_map<string, vector<string>> downloading; //filename->uid
+//     unordered_map<string, vector<string>> completed;   //filename->uid
+// };
 struct clientDetails
 {
     int socketId;
@@ -31,7 +42,10 @@ unordered_map<string, string> fileHash;               //[filename]->hashval
 unordered_map<string, pair<string, int>> portIpUsers; //user->[ip,port]
 unordered_map<string, int> SocIdsUsers;               //[users]->socketId
 vector<struct fileDetails> filedetails;
+// vector<struct downloads> downloadinfo;
 unordered_map<string, vector<string>> pendingReq;
+unordered_map<string, vector<string>> downloading;
+unordered_map<string, vector<string>> completed;
 
 int check(int exp, const char *msg)
 {
@@ -231,7 +245,7 @@ string getChunks(string len)
         bitmap += '1';
     return bitmap;
 }
-void upload_file(string gid, string ip, int port, string filename, string shaval, string len,string path)
+void upload_file(string gid, string ip, int port, string filename, string shaval, string len, string filepath)
 {
     string userId = searchUser(port, ip);
     // fileHash[filename] = hashval;
@@ -245,11 +259,37 @@ void upload_file(string gid, string ip, int port, string filename, string shaval
     filed.fileOwners[filename].push_back(chunkmap);
     filed.sha_filenames[filename].first = shaval;
     filed.sha_filenames[filename].second = len;
-    filed.filenames_paths[filename] = path;
-    // cout << filed.sha_filenames[filename].first << endl;
-    cout << filed.filenames_paths[filename]<< endl;
+    // filed.filenames_paths[filename].push_back(path);
+
+    cout << filed.sha_filenames[filename].first << endl;
+    cout << filed.sha_filenames[filename].second << endl;
+
+    struct filepaths fpath;
+    fpath.uid = userId;
+    fpath.filenames_paths[filename] = filepath;
+    filenameWithPaths.push_back(fpath);
+    // cout << filed.filenames_paths[filename] << endl;
     filedetails.push_back(filed);
+
     // cout << "chunkmap   " << chunkmap << endl;
+}
+string getPath(string uid, string fname)
+{
+    for (struct filepaths p : filenameWithPaths)
+    {
+        // if (p->ip == ip && p->port == port)
+        // {
+        //     return p->filenames_paths[fname];
+        // }
+        cout<<p.uid<<" ";
+        if (p.uid == uid)
+        {
+            return p.filenames_paths[fname];
+        }
+    }
+    cout << "Cannot find path" << endl;
+    exit(1);
+    return "";
 }
 string download_file(string gid, string filename)
 {
@@ -262,40 +302,285 @@ string download_file(string gid, string filename)
     vector<string> ownermap;
     for (auto p : filedetails)
     {
-        // cout<<"gid"<<p.gid<<" ";
+        cout << "gid" << p.gid << " ";
         if (p.gid == gid)
         {
             shaval = p.sha_filenames[filename].first;
             len = p.sha_filenames[filename].second;
-            fullpath = p.filenames_paths[filename];
+            // fullpath = p.filenames_paths[filename];
             for (auto chunkmap : p.fileOwners[filename])
             {
-                // cout<<chunkmap<<" ";
+                cout << chunkmap << " ";
                 ownermap.push_back(chunkmap);
             }
             break;
         }
-        // cout<<endl;
+        cout << endl;
     }
+
     for (string chunk : ownermap)
     {
         string owner = "";
+        string uid = "";
         int i = 0;
         for (i = 0; i < chunk.size(); i++)
         {
             if (chunk[i] == '$')
                 break;
+
             owner = owner + chunk[i];
             cout << "chunk[i] " << chunk[i] << "owner  " << owner << endl;
         }
-        ip = portIpUsers[owner].first;
-        port = to_string(portIpUsers[owner].second);
-        // cout<<ip<<port<<"  "<<chunk.substr(i,chunk.length()-1);
-        // cout<<endl;
-        allfiles = ip + ":" + port + chunk.substr(i, chunk.length() - 1) + " " + allfiles;
+        if (portIpUsers.find(owner) != portIpUsers.end())
+        {
+            ip = portIpUsers[owner].first;
+            port = to_string(portIpUsers[owner].second);
+            cout << "line 293" << endl;
+            cout << ip << port << "  " << chunk.substr(i, chunk.length() - 1);
+            cout << endl;
+            string fpath = getPath(owner,filename);
+            allfiles = fpath + "#" + ip + ":" + port + chunk.substr(i, chunk.length() - 1) + " " + allfiles;
+        }
     }
-    allfiles = allfiles + " " + shaval + " " + len+" "+fullpath; //ip:port$01010101 ip:port$01010101 ip:port$01010101 shaval sizeoffileinbytes
+    allfiles = allfiles + " " + shaval + " " + len; //uid#ip:port$01010101 ip:port$01010101 ip:port$01010101 shaval sizeoffileinbytes
     return allfiles;
+}
+void detailsOfChunk(string ip, string port, string gid, string filename, string chunkmap)
+{
+    string uid = searchUser(convertToInt(port), ip);
+    bool flag = 0;
+    for (auto p : filedetails)
+    {
+        cout << "gid" << p.gid << " ";
+        if (p.gid == gid)
+        {
+            for (auto it = p.fileOwners[filename].begin(); it != p.fileOwners[filename].end(); ++it)
+            {
+                std::string::size_type pos = (*it).find('$');
+                string up = (*it).substr(0, pos);
+                if (up == uid)
+                {
+                    flag = 1;
+                    p.fileOwners[filename].erase(it);
+                    cout << "line 333 erasing" << endl;
+                    break;
+                }
+            }
+            string val = uid + "$" + chunkmap;
+            cout << "line 338   " << val << endl;
+            p.fileOwners[filename].push_back(val);
+        }
+    }
+}
+void putD(string ip, string port, string gid, string filename,string filepath)
+{
+    // string uid = searchUser(convertToInt(port), ip);
+    bool flag = 0;
+    downloading[gid].push_back(filename);
+
+     string userId = searchUser(convertToInt(port), ip);
+    struct filepaths fpath;
+    fpath.uid = userId;
+    fpath.filenames_paths[filename] = filepath;
+    filenameWithPaths.push_back(fpath);
+    // for (auto p : downloadinfo)
+    // {
+    //     cout << "gid" << p.gid << "line 330 ";
+    //     if (p.gid == gid)
+    //     {
+    //         flag = 1;
+    //         p.downloading[filename].push_back(uid);
+    //         break;
+    //     }
+    // }
+    // if (!flag)
+    // {
+    //     struct downloads downd;
+    //     downd.gid = gid;
+    //     cout << "gid"
+    //          << "line 342" << endl;
+    //     downd.downloading[filename].push_back(uid);
+    //     downd.completed[filename].push_back("x");
+    //     downloadinfo.push_back(downd);
+    // }
+}
+void insertIntocom(string gid, string uid, string filename)
+{
+    // bool flag = 0;
+    // for (struct downloads p : downloadinfo)
+    // {
+    //     cout << "gid" << p.gid << " ";
+    //     if (p.gid == gid)
+    //     {
+    //         cout << "line 355" << endl;
+    //         flag = 1;
+    //         p.completed[filename].push_back(uid);
+    //         break;
+    //     }
+    // }
+    // if (!flag)
+    // {
+    //     struct downloads comd;
+    //     comd.gid = gid;
+    //     comd.completed[filename].push_back(uid);
+    //     cout<<"line 366"<<endl;
+    //     downloadinfo.push_back(comd);
+    // }
+}
+void putC(string ip, string port, string gid, string filename)
+{
+    // downloading[gid].erase(downloading[gid].find(filename));
+
+    // cout << "Before " << endl;
+    // string uid = searchUser(convertToInt(port), ip);
+    for (auto it = downloading[gid].begin(); it != downloading[gid].end(); ++it)
+    {
+        if ((*it) == filename)
+        {
+            downloading[gid].erase(it);
+            break;
+        }
+    }
+    completed[gid].push_back(filename);
+    //         {
+    //             if ((*it) == uid)
+    //             {
+    //                 cout << "line 382 erasing the down" << endl;
+    //                 p.downloading[filename].erase(it);
+    //                 if (p.downloading[filename].size() == 0)
+    //                 {
+    //                     cout << "line 386 erasing..." << endl;
+    //                     p.downloading.erase(filename);
+    //                 }
+    //                 insertIntocom(gid, uid, filename);
+    //                 break;
+    //             }
+    //         }
+    // for (auto p : downloadinfo)
+    // {
+    //     cout << p.gid << endl;
+    //     for (auto d : p.downloading)
+    //     {
+    //         cout << "Downloading" << d.first << " ";
+    //         for (auto x : d.second)
+    //         {
+    //             cout << x << " ";
+    //         }
+    //         cout << endl;
+    //     }
+    //     for (auto d : p.completed)
+    //     {
+    //         cout << "completed" << d.first << " ";
+    //         for (auto x : d.second)
+    //         {
+    //             cout << x << " ";
+    //         }
+    //         cout << endl;
+    //     }
+    // }
+    // for (struct downloads p : downloadinfo)
+    // {
+    //     if (p.gid == gid)
+    //     {
+    //         cout << "gid"
+    //              << "line 373" << endl;
+    //         for (auto it = p.downloading[filename].begin(); it != p.downloading[uid].end(); ++it)
+    //         {
+    //             if ((*it) == uid)
+    //             {
+    //                 cout << "line 382 erasing the down" << endl;
+    //                 p.downloading[filename].erase(it);
+    //                 if (p.downloading[filename].size() == 0)
+    //                 {
+    //                     cout << "line 386 erasing..." << endl;
+    //                     p.downloading.erase(filename);
+    //                 }
+    //                 insertIntocom(gid, uid, filename);
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+    // cout << "After: " << endl;
+    // for (auto p : downloadinfo)
+    // {
+    //     cout << p.gid << endl;
+    //     for (auto d : p.downloading)
+    //     {
+    //         cout << "Downloading" << d.first << " ";
+    //         for (auto x : d.second)
+    //         {
+    //             cout << x << " ";
+    //         }
+    //         cout << endl;
+    //     }
+    //     for (auto d : p.completed)
+    //     {
+    //         cout << "completed" << d.first << " ";
+    //         for (auto x : d.second)
+    //         {
+    //             cout << x << " ";
+    //         }
+    //         cout << endl;
+    //     }
+    // }
+}
+string showdownloads()
+{
+    string val = "";
+    string g = "";
+    // for (auto p : downloadinfo)
+    // {
+    //     string gid = p.gid;
+    //     string s = "";
+    //     for (auto d : p.downloading)
+    //     {
+    //         cout << "line 411 in downloading" << endl;
+    //         s = "D [" + gid + "] " + d.first + "\n";
+    //     }
+    //     g = g + s;
+    //     s = "";
+    //     for (auto d : p.completed)
+    //     {
+    //         cout << "line 411 in completed" << endl;
+    //         s = "C [" + gid + "] " + d.first + "\n";
+    //     }
+    //     g = g + s;
+    //     cout << g << "line 415" << endl;
+    //     val = val + g;
+    //     g = "";
+    // }
+    for (auto gid : downloading)
+    {
+        // cout << "line 411 in downloading" << endl;
+        for (auto fname : gid.second)
+            val = "D [" + gid.first + "] " + fname + "\n" + val;
+    }
+    for (auto gid : completed)
+    {
+        cout << "line 411 in downloading" << endl;
+        for (auto fname : gid.second)
+            val = "C [" + gid.first + "] " + fname + "\n" + val;
+    }
+    return val;
+}
+string list_files(string gid)
+{
+    string val = "";
+    for (auto p : filedetails)
+    {
+        if (gid == p.gid)
+        {
+            cout << "line 380" << endl;
+            for (auto g : p.fileOwners)
+            {
+                val = g.first + "\n" + val;
+            }
+            break;
+        }
+    }
+    cout << "line 388" << endl;
+    return val;
 }
 void *acceptConnection(void *arguments)
 {
@@ -426,7 +711,15 @@ void *acceptConnection(void *arguments)
             int port = convertToInt(command[4]);
             string ip = command[3];
             //command[2] = gid command[1]=filename command[5]= hashvaloffile command[6]=sizeoffile
-            upload_file(command[2], ip, port, command[1], command[5], command[6],command[7]);
+            upload_file(command[2], ip, port, command[1], command[5], command[6], command[7]);
+            char reqData[1024] = {
+                0,
+            };
+            // string uid = searchUser(port, ip);
+            // string dataToSend = "upload " + uid + " " + command[1] + " " + command[7]; //u uid filename path
+            // strcpy(reqData, dataToSend.c_str());
+            // cout << "sending...   " << dataToSend << endl;
+            // send(clientSocD, reqData, 1024, 0);
         }
         else if (command[0] == "download_file")
         {
@@ -436,7 +729,43 @@ void *acceptConnection(void *arguments)
             char reqData[1024] = {
                 0,
             };
-            dataToSend = "d " + dataToSend + " " + command[1] + " " + command[2]+" "+command[5]; //d ip:port$111000 ip:port$1111111 shaval size gid filename despath
+            dataToSend = "d " + dataToSend + " " + command[1] + " " + command[2] + " " + command[5]; //d uid#ip:port$111000 uid#ip:port$1111111 shaval size gid filename despath
+            strcpy(reqData, dataToSend.c_str());
+            cout << "sending...   " << dataToSend << endl;
+            send(clientSocD, reqData, 1024, 0);
+        }
+        else if (command[0] == "chunk")
+        {
+            cout << data << endl;
+            detailsOfChunk(command[1], command[1], command[2], command[3], command[4]);
+        }
+        else if (command[0] == "downloading")
+        {
+            cout << data << endl;
+            putD(command[1], command[2], command[3], command[4],command[5]);
+        }
+        else if (command[0] == "completed")
+        {
+            cout << data << endl;
+            putC(command[1], command[2], command[3], command[4]);
+        }
+        else if (command[0] == "show_downloads")
+        {
+            cout << data << endl;
+            string dataToSend = showdownloads();
+            char reqData[1024] = {
+                0,
+            };
+            strcpy(reqData, dataToSend.c_str());
+            cout << "sending...   " << dataToSend << endl;
+            send(clientSocD, reqData, 1024, 0);
+        }
+        else if (command[0] == "list_files")
+        {
+            string dataToSend = list_files(command[1]);
+            char reqData[1024] = {
+                0,
+            };
             strcpy(reqData, dataToSend.c_str());
             // cout << "sending...   " << dataToSend << endl;
             send(clientSocD, reqData, 1024, 0);

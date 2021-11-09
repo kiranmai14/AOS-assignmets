@@ -21,6 +21,9 @@
 #include <semaphore.h>
 #include <sys/stat.h>
 #include <openssl/sha.h>
+#include <unordered_set>
+#include <algorithm>
+#include <cstdlib>
 
 
 #define REGISTERED "Registered Successfully"

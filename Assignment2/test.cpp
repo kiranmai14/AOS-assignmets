@@ -56,7 +56,13 @@ void getSHA(string filepath)
 }
 int main()
 {
-    getSHA("/home/kiranmai/IIIT/AOS/Assignment2/node1/test.pdf");
 
+    // getSHA("/home/kiranmai/IIIT/AOS/Assignment2/node1/test.pdf");
+    int no_of_chunks = 10;
+    vector<unordered_map<string,int>> chunkpeerinfo(10);
+
+
+    getSHA("/home/kiranmai/IIIT/AOS/Assignment2/node1/test.pdf");
+ 
     return 0;
 }
