@@ -5,6 +5,11 @@ using namespace std;
 void *FromTracker(void *);
 void *ToTracker(void *);
 
+pthread_mutex_t lock_sha;
+pthread_mutex_t lock_rec;
+pthread_mutex_t lock_sen;
+pthread_mutex_t lock_f;
+
 // struct fileDetails
 // {
 //      int port;
@@ -226,6 +231,7 @@ string recvsha(string filepath, long long piecesize, off_t offset)
     char encryptedText[40];
     // cout<<"In sha 227 "<<endl;
 
+    pthread_mutex_lock(&lock_sha);
     int fp = 0;
     check(fp = open(filepath.c_str(), O_RDWR), "error in opening file");
 
@@ -234,6 +240,7 @@ string recvsha(string filepath, long long piecesize, off_t offset)
     //  cout<<"In sha 234 "<<bytesReadFromFile<<filepath<<" "<<offset<<endl;
     SHA1(file_binary, bytesReadFromFile, sha_of_file);
     close(fp);
+    pthread_mutex_unlock(&lock_sha);
 
     for (int i = 0; i < 20; i++)
     {
@@ -274,14 +281,14 @@ void *getConnection(void *args)
     check((connect(client_socd, (struct sockaddr *)&address, sizeof(address))), "connection with peer failed");
 
     // cout << "clientSocD    " << client_socd << endl;
-    char data[1024] = {
+    char data[4096] = {
         0,
     };
 
-    recv(client_socd, data, 1024, 0);
+    recv(client_socd, data, 4096, 0);
     //  cout << data;
     // string tosend = "d " + gid + " " + filename;
-    // data[1024] = {
+    // data[4096] = {
     //     0,
     // };
     // string tosend = "";
@@ -289,17 +296,17 @@ void *getConnection(void *args)
     // strcpy(data, tosend.c_str());
     // // cout << data<<endl;
     // sleep(5);
-    // send( soc, data, 1024, 0);
+    // send( soc, data, 4096, 0);
 
-    // data[1024] = {
+    // data[4096] = {
     //     0,
     // };
     //
-    // recv(client_socd, data, 1024, 0);
+    // recv(client_socd, data, 4096, 0);
 
     // sleep(1);
 
-    // data[1024] = {
+    // data[4096] = {
     //     0,
     // };
     string filepath = despath + filename;
@@ -317,13 +324,13 @@ void *getConnection(void *args)
     // }
 
     // cout << "requesting " << chunkno << "from   " << ip << ":" << to_string(port) << endl;
-    data[1024] = {
+    data[4096] = {
         0,
     };
     string tosend = "requesting " + to_string(chunkno) + " " + gid + " " + filename + " " + srcpath;
     strcpy(data, tosend.c_str());
-    send(client_socd, data, 1024, 0);
-    data[1024] = {
+    send(client_socd, data, 4096, 0);
+    data[4096] = {
         0,
     };
     // receiving
@@ -336,6 +343,7 @@ void *getConnection(void *args)
     recv(client_socd, sha_of_piece, 40, 0);
     string sha = sha_of_piece;
 
+    pthread_mutex_lock(&lock_rec);
     int fp = 0;
     check(fp = open(filepath.c_str(), O_RDWR), "error in opening file");
     // FILE *fp = fopen(filepath.c_str(), "r+");
@@ -367,7 +375,7 @@ void *getConnection(void *args)
     // fclose(fp);
 
     // cout << "bytes received " << chunkno << " " << (totBytesRead) << endl;
-
+    pthread_mutex_unlock(&lock_rec);
     off_t offset = chunkno * CHUNK_SIZE;
     string sha_of_received = recvsha(filepath, pieceSize, offset);
     // sleep(1);
@@ -380,14 +388,14 @@ void *getConnection(void *args)
         cout << "sha verified for chunk " << chunkno << endl;
         file_chunks[filepath][chunkno] = '1';
         string mychunkmap = file_chunks[filepath];
-        data[1024] = {
+        data[4096] = {
             0,
         };
         // sleep(1);
         string toserver = "chunk " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename + " " + mychunkmap;
         cout << "line 350 " << toserver << endl;
         strcpy(data, toserver.c_str());
-        send(sockForserv, data, 1024, 0);
+        send(sockForserv, data, 4096, 0);
         sleep(5);
     }
     else
@@ -400,21 +408,21 @@ void *getConnection(void *args)
 
     // file_chunks[filename][chunkno] = '1';
     // string mychunkmap = file_chunks[filename];
-    // data[1024] = {
+    // data[4096] = {
     //     0,
     // };
     // // sleep(1);
     // string toserver = "chunk " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename + " " + mychunkmap;
     // // cout << "line 350 " << toserver << endl;
     // strcpy(data, toserver.c_str());
-    // send(sockForserv, data, 1024, 0);
+    // send(sockForserv, data, 4096, 0);
 
-    // data[1024] = {
+    // data[4096] = {
     //     0,
     // };
     // string end = "exit " + to_string(chunkno);
     // strcpy(data, end.c_str());
-    // send(client_socd, data, 1024, 0);
+    // send(client_socd, data, 4096, 0);
     // cout << "exiting from  " << client_socd << endl;
     // fflush(stdout);
     free(file_chunk);
@@ -433,29 +441,29 @@ void *getConnection(void *args)
 //     address.sin_port = htons(port);
 //     memset(&address.sin_zero, 0, sizeof(address.sin_zero));
 //     check((connect(client_socd, (struct sockaddr *)&address, sizeof(address))), "connection with peer failed");
-//     char data[1024] = {
+//     char data[4096] = {
 //         0,
 //     };
 //     string tosend = "d " + gid + " " + filename;
 //     strcpy(data, tosend.c_str());
-//     send(client_socd, data, 1024, 0);
+//     send(client_socd, data, 4096, 0);
 
-//     data[1024] = {
+//     data[4096] = {
 //         0,
 //     };
 //     //
-//     recv(client_socd, data, 1024, 0);
+//     recv(client_socd, data, 4096, 0);
 //     cout << data << endl;
 //     string mychunkmap = getChunks(size);
 
-//     data[1024] = {
+//     data[4096] = {
 //         0,
 //     };
 //     string toserverd = "downloading " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename;
 //     strcpy(data, toserverd.c_str());
-//     send(sockForserv, data, 1024, 0);
+//     send(sockForserv, data, 4096, 0);
 //     sleep(1);
-//     data[1024] = {
+//     data[4096] = {
 //         0,
 //     };
 
@@ -475,13 +483,13 @@ void *getConnection(void *args)
 //     for (int i = 0; i < mychunkmap.size(); i++)
 //     {
 //         cout << "Requesting chunk " << i << endl;
-//         data[1024] = {
+//         data[4096] = {
 //             0,
 //         };
 //         string tosend = "r " + to_string(i) + " " + gid + " " + filename + " " + srcpath;
 //         strcpy(data, tosend.c_str());
-//         send(client_socd, data, 1024, 0);
-//         data[1024] = {
+//         send(client_socd, data, 4096, 0);
+//         data[4096] = {
 //             0,
 //         };
 //         // receiving
@@ -540,33 +548,33 @@ void *getConnection(void *args)
 //         cout << "received chunk" << i << endl;
 //         mychunkmap[i] = '1';
 
-//         char datax[1024] = {
+//         char datax[4096] = {
 //             0,
 //         };
 //         // sleep(1);
 //         string toserver = "chunk " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename + " " + mychunkmap;
 //         strcpy(datax, toserver.c_str());
-//         send(sockForserv, datax, 1024, 0);
+//         send(sockForserv, datax, 4096, 0);
 //         // cout << datax << endl;
 //         // sleep(1);
 
 //         // off_t offset = i * CHUNK_SIZE;
 //         // recv(client_socd, file_chunk, sizeof(file_chunk), 0);
 //     }
-//     data[1024] = {
+//     data[4096] = {
 //         0,
 //     };
 //     string end = "exit";
 //     strcpy(data, end.c_str());
-//     send(client_socd, data, 1024, 0);
+//     send(client_socd, data, 4096, 0);
 //     close(client_socd);
 //     // cout << "ouside loop line 291" << endl;
-//     data[1024] = {
+//     data[4096] = {
 //         0,
 //     };
 //     string toserverc = "completed " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename;
 //     strcpy(data, toserverc.c_str());
-//     send(sockForserv, data, 1024, 0);
+//     send(sockForserv, data, 4096, 0);
 //     // cout << data << endl;
 // }
 bool comparesort(vector<pair<string, int>> a, vector<pair<string, int>> b)
@@ -668,10 +676,10 @@ void *FromTracker(void *arguments)
     string ip_of_me = args->ip;
     while (1)
     {
-        char data[1024] = {
+        char data[4096] = {
             0,
         };
-        int nRet = recv(client_socd, data, 1024, 0);
+        int nRet = recv(client_socd, data, 4096, 0);
         if (nRet == 0)
         {
             cout << "something happened closing connection" << endl;
@@ -777,11 +785,11 @@ void *FromTracker(void *arguments)
             // ftruncate(fd, len);
 
             string toserverd = "downloading " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename + " " + filepath;
-            data[1024] = {
+            data[4096] = {
                 0,
             };
             strcpy(data, toserverd.c_str());
-            send(client_socd, data, 1024, 0);
+            send(client_socd, data, 4096, 0);
             cout << selectedpeers.size() << endl;
             for (int i = 0; i < selectedpeers.size(); i++)
             {
@@ -793,12 +801,12 @@ void *FromTracker(void *arguments)
             {
                 pthread_join(tid[t++], NULL);
             }
-            data[1024] = {
+            data[4096] = {
                 0,
             };
             string toserverc = "completed " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename;
             strcpy(data, toserverc.c_str());
-            send(client_socd, data, 1024, 0);
+            send(client_socd, data, 4096, 0);
             file_chunks.erase(filepath);
             // getConnection(ip, port, filename, size, gid, despath, srcpath, client_socd, ip_of_me, port_of_me);
         }
@@ -850,7 +858,7 @@ void *ToTracker(void *arguments)
              << setw(15) << left << "logout" << endl
 
              << "================================" << endl;
-        char data[1024] = {
+        char data[4096] = {
             0,
         };
         string inpFromUser;
@@ -899,7 +907,7 @@ void *ToTracker(void *arguments)
             struct stat statbuf;
             check((stat(command[1].c_str(), &statbuf) == -1), "could not open file");
             intmax_t len = (intmax_t)statbuf.st_size;
-            // long chunks = (len / (512 * 1024));
+            // long chunks = (len / (512 * 4096));
             // cout << len << "   " << chunks << endl;
             // if (len % CHUNK_SIZE != 0)
             //     chunks = chunks + 1;
@@ -939,14 +947,13 @@ void *ToTracker(void *arguments)
         {
             cout << "In list_files" << endl;
         }
-        else if (command[0] == "getpath")
+        else if (command[0] == "stop_share")
         {
-            // cout<<"line 860 "<<getPath("127.0.0.1",2000,"test.pdf")<<endl;
-            continue;
+            inpFromUser = command[0] + " " + command[1] + " " + command[2] + " " + args->ip + " " + to_string(args->port);
         }
         cout << "sending " << inpFromUser << endl;
         strcpy(data, inpFromUser.c_str());
-        send(client_socd, data, 1024, 0);
+        send(client_socd, data, 4096, 0);
     }
     pthread_exit(NULL);
 }
@@ -966,7 +973,7 @@ void *establishConnectionTracker(void *arguments)
     address.sin_port = htons(port);
     memset(&address.sin_zero, 0, sizeof(address.sin_zero));
     check((connect(client_socd, (struct sockaddr *)&address, sizeof(address))), "connection with tracker failed");
-    char buf[1024] = {
+    char buf[4096] = {
         0,
     };
 
@@ -1018,11 +1025,11 @@ void *acceptConnection(void *arguments)
     sleep(2);
     // while (1)
     // {
-    char data[1024] = {
+    char data[4096] = {
         0,
     };
-    send(clientSocD, "ok I will send you", 1024, 0);
-    int nRet = recv(clientSocD, data, 1024, 0);
+    send(clientSocD, "ok I will send you", 4096, 0);
+    int nRet = recv(clientSocD, data, 4096, 0);
     // cout << "clientSocD    " << clientSocD << "  nret " << nRet << endl;
     sleep(2);
     if (nRet == 0)
@@ -1035,10 +1042,10 @@ void *acceptConnection(void *arguments)
     // cout << data << endl;
     // fflush(stdout);
     // coverting string into words
-    // data[1024] = {
+    // data[4096] = {
     //     0,
     // };
-    // recv(clientSocD, data, 1024, 0);
+    // recv(clientSocD, data, 4096, 0);
     vector<string> received;
     istringstream sst(data);
     string inter;
@@ -1048,7 +1055,7 @@ void *acceptConnection(void *arguments)
     }
     if (received[0] == "requesting")
     {
-        //     send(clientSocD, "ok I will send you", 1024, 0);
+        //     send(clientSocD, "ok I will send you", 4096, 0);
         // }
         // else if (received[0] == "rgive")
         // {
@@ -1061,6 +1068,8 @@ void *acceptConnection(void *arguments)
         // cout << chunkno << endl;
         // int fp = 0;
 
+
+        pthread_mutex_lock(&lock_f);
         FILE *fp = fopen(filepath.c_str(), "r+");
         if (fp == NULL)
         {
@@ -1075,6 +1084,8 @@ void *acceptConnection(void *arguments)
         fseek(fp, 0, SEEK_END);
         long file_end = ftell(fp);
         fclose(fp);
+        pthread_mutex_unlock(&lock_f);
+
 
         if (file_end > piece_begin + CHUNK_SIZE - 1)
         {
@@ -1096,6 +1107,8 @@ void *acceptConnection(void *arguments)
         // cout << "SHA   " << shachar << endl;
         send(clientSocD, shachar, 40, 0);
 
+
+        pthread_mutex_lock(&lock_sen);
         int fd = 0;
         check(fd = open(filepath.c_str(), O_RDWR), "error in opening file");
         char *file_chunk = new char[piece_size];
@@ -1108,6 +1121,7 @@ void *acceptConnection(void *arguments)
         // cout << "sending " << chunkno << " " << piece_size << endl;
         long long bytesReadFromFile = pread(fd, file_chunk, CHUNK_SIZE, offset);
         close(fd);
+        pthread_mutex_unlock(&lock_sen);
 
         // string sha_of_piece = getpiecesha(file_chunk, bytesReadFromFile);
 
@@ -1121,7 +1135,7 @@ void *acceptConnection(void *arguments)
         // sleep(1);
 
         // sleep(1);
-        data[1024] = {
+        data[4096] = {
             0,
         };
         cout << "exiting from  "
@@ -1162,7 +1176,7 @@ void startListening(int port, string ip1, int &server_socd, struct sockaddr_in &
 }
 void covertAsServer(int cliport, string ip)
 {
-    pthread_t tid[60];
+    pthread_t tid[120];
     int server_socd;
     struct sockaddr_in address;
     startListening(cliport, ip, server_socd, address);
@@ -1181,10 +1195,10 @@ void covertAsServer(int cliport, string ip)
         check(pthread_create(&tid[i], NULL, acceptConnection, (void *)&args[i]), "Failed to create thread");
         i++;
         // cout<<"line 217"<<endl;
-        if (i >= 50)
+        if (i >= 120)
         {
             i = 0;
-            while (i < 50)
+            while (i < 120)
             {
                 pthread_join(tid[i++], NULL);
             }
@@ -1197,6 +1211,21 @@ int main(int argc, char *argv[])
 {
     // int argc = 4;
     // string argv[] = {"./client", "127.0.0.1:2000", "tracker_file.txt"};
+    if (pthread_mutex_init(&lock_sha, NULL) != 0)
+    {
+        printf("\n mutex init failed\n");
+        return 1;
+    }
+    if (pthread_mutex_init(&lock_rec, NULL) != 0)
+    {
+        printf("\n mutex init failed\n");
+        return 1;
+    }
+    if (pthread_mutex_init(&lock_sen, NULL) != 0)
+    {
+        printf("\n mutex init failed\n");
+        return 1;
+    }
     if (argc < 3)
     {
         cout << "Insufficiet command line arguments" << endl;

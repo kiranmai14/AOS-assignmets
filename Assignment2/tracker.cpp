@@ -1,7 +1,6 @@
 #include "headers.h"
-char client_message[2000];
-char buffer[1024];
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+
 using namespace std;
 void *acceptConnection(void *);
 template <typename T1, typename T2>
@@ -528,6 +527,32 @@ void insertIntocom(string gid, string uid, string filename)
     //     downloadinfo.push_back(comd);
     // }
 }
+void stop_share(string ip, string port, string gid, string filename)
+{
+
+    string userId = searchUser(convertToInt(port),ip);
+    vector<struct fileDetails>::iterator it;
+    for (it = filedetails.begin(); it != filedetails.end(); it++)
+    {
+        if ((*it).gid == gid)
+        {
+            vector<string>:: iterator fown;
+            for (fown = (*it).fileOwners[filename].begin(); fown != (*it).fileOwners[filename].end(); ++fown)
+            {
+                cout << "in details of chunk"
+                     << " " << endl;
+                std::string::size_type pos = (*fown).find('$');
+                string up = (*fown).substr(0, pos);
+                if (up == userId)
+                {
+                    (*it).fileOwners[filename].erase(fown);
+                    cout << "line 333 erasing" << endl;
+                    break;
+                }
+            }
+        }
+    }
+}
 void putC(string ip, string port, string gid, string filename)
 {
     // downloading[gid].erase(downloading[gid].find(filename));
@@ -695,10 +720,10 @@ void *acceptConnection(void *arguments)
     send(clientSocD, "client connection success\n", 25, 0);
     while (1)
     {
-        char data[1024] = {
+        char data[4096] = {
             0,
         };
-        int nRet = recv(clientSocD, data, 1024, 0);
+        int nRet = recv(clientSocD, data, 4096, 0);
         if (nRet == 0)
         {
             cout << "something happened closing connection" << endl;
@@ -719,29 +744,29 @@ void *acceptConnection(void *arguments)
         {
             // uid,pwd
             if (create_user(command[1], command[2]))
-                send(clientSocD, REGISTERED, 1024, 0);
+                send(clientSocD, REGISTERED, 4096, 0);
             else
-                send(clientSocD, "user already exists", 1024, 0);
+                send(clientSocD, "user already exists", 4096, 0);
         }
         else if (command[0] == "login")
         {
             // uid,pwd
             int port = convertToInt(command[4]);
             if (login(command[1], command[2], command[3], port, clientSocD))
-                send(clientSocD, LOGGEDIN, 1024, 0);
+                send(clientSocD, LOGGEDIN, 4096, 0);
             else
-                send(clientSocD, "user doesn't exists", 1024, 0);
+                send(clientSocD, "user doesn't exists", 4096, 0);
         }
         else if (command[0] == "getport")
         {
-            send(clientSocD, "2001", 1024, 0);
+            send(clientSocD, "2001", 4096, 0);
         }
         else if (command[0] == "create_group")
         {
             int port = convertToInt(command[3]);
             string ip = command[2];
             create_group(command[1], ip, port); //command[1] = gid
-            send(clientSocD, "create group successfully", 1024, 0);
+            send(clientSocD, "create group successfully", 4096, 0);
         }
         else if (command[0] == "join_group")
         {
@@ -750,13 +775,13 @@ void *acceptConnection(void *arguments)
             int ownSocId = join_group(command[1], ip, port);
             string uidReq = searchUser(port, ip);
             string req = "peer " + uidReq + " " + "wants to join group" + " " + command[1];
-            char reqData[1024] = {
+            char reqData[4096] = {
                 0,
             };
             strcpy(reqData, req.c_str());
             cout << "line 220" << endl
                  << reqData << endl;
-            send(ownSocId, reqData, 1024, 0);
+            send(ownSocId, reqData, 4096, 0);
         }
         else if (command[0] == "accept_request")
         {
@@ -766,18 +791,18 @@ void *acceptConnection(void *arguments)
             string uid = command[2];
             string uidown = searchUser(port, ip);
             string dataToSend = accept_request(gid, uid, uidown);
-            char reqData[1024] = {
+            char reqData[4096] = {
                 0,
             };
             strcpy(reqData, dataToSend.c_str());
             if (dataToSend == "accepted")
             {
                 int reqSocId = SocIdsUsers[uid];
-                send(reqSocId, reqData, 1024, 0);
+                send(reqSocId, reqData, 4096, 0);
             }
             else
             {
-                send(clientSocD, reqData, 1024, 0);
+                send(clientSocD, reqData, 4096, 0);
             }
         }
         else if (command[0] == "leave_group")
@@ -795,22 +820,22 @@ void *acceptConnection(void *arguments)
         else if (command[0] == "list_groups")
         {
             string dataToSend = list_groups(); //command[1] = gid
-            char reqData[1024] = {
+            char reqData[4096] = {
                 0,
             };
             strcpy(reqData, dataToSend.c_str());
-            send(clientSocD, reqData, 1024, 0);
+            send(clientSocD, reqData, 4096, 0);
         }
         else if (command[0] == "list_requests")
         {
             int port = convertToInt(command[3]);
             string ip = command[2];
             string dataToSend = list_requests(command[1], ip, port);
-            char reqData[1024] = {
+            char reqData[4096] = {
                 0,
             };
             strcpy(reqData, dataToSend.c_str());
-            send(clientSocD, reqData, 1024, 0);
+            send(clientSocD, reqData, 4096, 0);
         }
         else if (command[0] == "upload_file")
         {
@@ -818,21 +843,21 @@ void *acceptConnection(void *arguments)
             string ip = command[3];
             //command[2] = gid command[1]=filename command[5]= hashvaloffile command[6]=sizeoffile
             upload_file(command[2], ip, port, command[1], command[5], command[6], command[7]);
-            char reqData[1024] = {
+            char reqData[4096] = {
                 0,
             };
             // string uid = searchUser(port, ip);
             // string dataToSend = "upload " + uid + " " + command[1] + " " + command[7]; //u uid filename path
             // strcpy(reqData, dataToSend.c_str());
             // cout << "sending...   " << dataToSend << endl;
-            // send(clientSocD, reqData, 1024, 0);
+            // send(clientSocD, reqData, 4096, 0);
         }
         else if (command[0] == "download_file")
         {
             //command[1] = gid command[2]=filename commad[5] = destpath
             // cout << "line 327" << command[1] << command[2] << endl;
             string dataToSend = download_file(command[1], command[2]);
-            char reqData[1024] = {
+            char reqData[4096] = {
                 0,
             };
             if (dataToSend.size() == 0)
@@ -841,7 +866,7 @@ void *acceptConnection(void *arguments)
                 dataToSend = "d " + dataToSend + " " + command[1] + " " + command[2] + " " + command[5]; //d uid#ip:port$111000 uid#ip:port$1111111 shaval size gid filename despath
             strcpy(reqData, dataToSend.c_str());
             cout << "sending...   " << dataToSend << endl;
-            send(clientSocD, reqData, 1024, 0);
+            send(clientSocD, reqData, 4096, 0);
         }
         else if (command[0] == "chunk")
         {
@@ -862,22 +887,27 @@ void *acceptConnection(void *arguments)
         {
             cout << data << endl;
             string dataToSend = showdownloads();
-            char reqData[1024] = {
+            char reqData[4096] = {
                 0,
             };
             strcpy(reqData, dataToSend.c_str());
             cout << "sending...   " << dataToSend << endl;
-            send(clientSocD, reqData, 1024, 0);
+            send(clientSocD, reqData, 4096, 0);
         }
         else if (command[0] == "list_files")
         {
             string dataToSend = list_files(command[1]);
-            char reqData[1024] = {
+            char reqData[4096] = {
                 0,
             };
             strcpy(reqData, dataToSend.c_str());
             // cout << "sending...   " << dataToSend << endl;
-            send(clientSocD, reqData, 1024, 0);
+            send(clientSocD, reqData, 4096, 0);
+        }
+        else if (command[0] == "stop_share")
+        {
+           // command[1] = gid command[1] = filename  command[3] = ip command[4] = port 
+           stop_share(command[3],command[4],command[1],command[2]);
         }
         // cout << "line 79" << endl;
         cout << "line 252" << endl;
@@ -962,7 +992,7 @@ int main()
 
     // cout<<ip1<<" "<<port1<<" "<<ip2<<" "<<port2;
     // --------------------------------------------------------------------------------------
-    pthread_t tid[60];
+    pthread_t tid[120];
     int server_socd;
     struct sockaddr_in address, my_addr;
     startListening(port1, ip1, server_socd, address);
@@ -976,10 +1006,10 @@ int main()
         struct clientDetails args;
         args.socketId = clientSocD;
         check(pthread_create(&tid[i++], NULL, acceptConnection, (void *)&args), "Failed to create thread");
-        if (i >= 50)
+        if (i >= 120)
         {
             i = 0;
-            while (i < 50)
+            while (i < 120)
             {
                 pthread_join(tid[i++], NULL);
             }
