@@ -155,26 +155,6 @@ void getPortandIp(char *argv[], vector<string> &trackerdetails, int &port, strin
     }
     port = convertToInt(p);
 }
-string getpiecesha(string piece, long long piecesize)
-{
-    unsigned char sha_of_file[20];
-    unsigned char *file_binary = new unsigned char[piecesize];
-
-    bzero(file_binary, sizeof(file_binary));
-    bzero(sha_of_file, sizeof(sha_of_file));
-
-    char encryptedText[40];
-    SHA1(file_binary, piecesize, sha_of_file);
-    for (int i = 0; i < 20; i++)
-    {
-        sprintf(encryptedText + 2 * i, "%02x", sha_of_file[i]);
-    }
-    string piecewiseSHA = "";
-    piecewiseSHA = piecewiseSHA + encryptedText;
-    free(file_binary);
-    return piecewiseSHA;
-}
-
 string recvsha(string filepath, long long piecesize, off_t offset)
 {
     unsigned char sha_of_file[20];
@@ -283,14 +263,13 @@ void *getConnection(void *args)
 
     if (sha.compare(sha_of_received) == 0)
     {
-        cout << "sha verified for chunk " << chunkno << endl;
+        // cout << "sha verified for chunk " << chunkno << endl;
         file_chunks[filepath][chunkno] = '1';
         string mychunkmap = file_chunks[filepath];
         data[4096] = {
             0,
         };
         string toserver = "chunk " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename + " " + mychunkmap;
-        cout << "line 350 " << toserver << endl;
         strcpy(data, toserver.c_str());
         send(sockForserv, data, 4096, 0);
         sleep(5);
@@ -402,7 +381,7 @@ void *FromTracker(void *arguments)
         int nRet = recv(client_socd, data, 4096, 0);
         if (nRet == 0)
         {
-            cout << "something happened closing connection" << endl;
+            cout << "connection with tracker is lost" << endl;
             close(client_socd);
             pthread_exit(NULL);
         }
@@ -550,56 +529,21 @@ void *ToTracker(void *arguments)
             command.push_back(intermediate);
         }
         bool flag = 0;
-        if (command[0] == "create_user")
-        {
-            if (!checkCount(command, 3))
-                flag = 1;
-        }
-        else if (command[0] == "login")
-        {
-            if (!checkCount(command, 3))
-                flag = 1;
-            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
-        }
-        else if (command[0] == "create_group")
-        {
-            if (!checkCount(command, 2))
-                flag = 1;
-            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
-        }
-        else if (command[0] == "join_group")
-        {
-            if (!checkCount(command, 2))
-                flag = 1;
-            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
-        }
-        else if (command[0] == "leave_group")
-        {
-            if (!checkCount(command, 2))
-                flag = 1;
-            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
-        }
-        else if (command[0] == "list_requests")
-        {
-            if (!checkCount(command, 2))
-                flag = 1;
+        if ((command[0] == "create_user" || command[0] == "accept_request" || command[0] == "login" ||
+             command[0] == "stop_share") &&
+            !checkCount(command, 3))
+            flag = 1;
 
-            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
-        }
-        else if (command[0] == "accept_request")
-        {
-            if (!checkCount(command, 3))
-                flag = 1;
+        else if ((command[0] == "create_group" || command[0] == "join_group" || command[0] == "leave_group" ||
+                  command[0] == "list_requests" || command[0] == "list_files") &&
+                 !checkCount(command, 2))
+            flag = 1;
 
-            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
-        }
-        else if (command[0] == "logout")
-        {
-            if (!checkCount(command, 1))
-                flag = 1;
+        else if ((command[0] == "logout" || command[0] == "show_downloads" ||
+                  command[0] == "list_groups") &&
+                 !checkCount(command, 1))
+            flag = 1;
 
-            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
-        }
         else if (command[0] == "upload_file")
         {
             if (!checkCount(command, 3))
@@ -610,44 +554,10 @@ void *ToTracker(void *arguments)
             check((stat(command[1].c_str(), &statbuf) == -1), "could not open file");
             intmax_t len = (intmax_t)statbuf.st_size;
             string filename = getFileName(command[1]);
-            inpFromUser = command[0] + " " + filename + " " + command[2] + " " + args->ip + " " + to_string(args->port) + " " + shavalue + " " + to_string(len) + " " + command[1];
+            inpFromUser = command[0] + " " + filename + " " + command[2] + " " + shavalue + " " + to_string(len) + " " + command[1];
         }
-        else if (command[0] == "download_file")
-        {
-            if (!checkCount(command, 4))
-                flag = 1;
-
-            string des_path = command[3];
-            inpFromUser = command[0] + " " + command[1] + " " + command[2] + " " + args->ip + " " + to_string(args->port) + " " + command[3];
-        }
-        else if (command[0] == "show_downloads")
-        {
-            if (!checkCount(command, 1))
-                flag = 1;
-
-            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
-        }
-        else if (command[0] == "list_files")
-        {
-            if (!checkCount(command, 2))
-                flag = 1;
-
-            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
-        }
-        else if (command[0] == "stop_share")
-        {
-            if (!checkCount(command, 3))
-                flag = 1;
-
-            inpFromUser = command[0] + " " + command[1] + " " + command[2] + " " + args->ip + " " + to_string(args->port);
-        }
-        else if (command[0] == "list_groups")
-        {
-            if (!checkCount(command, 1))
-                flag = 1;
-
-            inpFromUser = command[0] + " " + args->ip + " " + to_string(args->port);
-        }
+        else if (command[0] == "download_file" && !checkCount(command, 4))
+            flag = 1;
         else
         {
             cout << "Invalid command" << endl;
@@ -656,7 +566,11 @@ void *ToTracker(void *arguments)
         if (flag)
         {
             cout << "Insufficient arguments" << endl;
+            continue;
         }
+        if (command[0] != "create_user")
+            inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
+
         strcpy(data, inpFromUser.c_str());
         send(client_socd, data, 4096, 0);
     }

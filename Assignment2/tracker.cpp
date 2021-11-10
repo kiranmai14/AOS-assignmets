@@ -23,15 +23,15 @@ struct clientDetails
 };
 unordered_map<string, string> users;                  //[uid]->[passwd]
 unordered_map<string, vector<string>> groups;         //[grpid]->owner,users
-unordered_map<string, string> userGids;               //[user]->gid
 unordered_map<string, string> fileHash;               //[filename]->hashval
 unordered_map<string, pair<string, int>> portIpUsers; //user->[ip,port]
 unordered_map<string, int> SocIdsUsers;               //[users]->socketId
-vector<struct fileDetails> filedetails;
 unordered_map<string, vector<string>> pendingReq;
 unordered_map<string, vector<string>> downloading;
 unordered_map<string, vector<string>> completed;
+
 vector<struct filepaths> filenameWithPaths;
+vector<struct fileDetails> filedetails;
 
 int check(int exp, const char *msg)
 {
@@ -60,7 +60,7 @@ string searchUser(int port, string ip)
         if (port == p && ip == s)
             return m.first;
     }
-    return "";
+    return "-1";
 }
 bool create_user(string user, string password)
 {
@@ -88,7 +88,6 @@ void create_group(string gid, string ip, int port)
 {
     string userId = searchUser(port, ip);
     groups[gid].push_back(userId);
-    userGids[userId] = gid;
 }
 int join_group(string gid, string ip, int port)
 {
@@ -118,7 +117,6 @@ string accept_request(string gid, string uid, string uidOwn)
             }
         }
         groups[gid].push_back(uid);
-        userGids[uid] = gid;
         return "accepted";
     }
     else
@@ -177,17 +175,6 @@ string list_requests(string gid, string ip, int port)
     else
         return "You are not owner of group";
 }
-string getFileName(string path)
-{
-    string dummy;
-    stringstream ss(path);
-    string intermediate;
-    while (getline(ss, intermediate, '/'))
-    {
-        dummy = intermediate;
-    }
-    return dummy;
-}
 string getChunks(string len)
 {
     long long int size = convertToInt(len);
@@ -222,7 +209,6 @@ void upload_file(string gid, string ip, int port, string filename, string shaval
     if (!flag)
     {
 
-        cout << "In creating struct " << endl;
         struct fileDetails filed;
         filed.gid = gid;
 
@@ -274,9 +260,6 @@ string getPath(string uid, string fname)
             return p.filenames_paths[fname];
         }
     }
-    cout << "Cannot find path" << endl;
-    exit(1);
-    return "";
 }
 string download_file(string gid, string filename)
 {
@@ -289,7 +272,6 @@ string download_file(string gid, string filename)
     vector<string> ownermap;
     for (auto p : filedetails)
     {
-        cout << "gid" << p.gid << " ";
         if (p.gid == gid)
         {
             shaval = p.sha_filenames[filename].first;
@@ -299,7 +281,6 @@ string download_file(string gid, string filename)
                 ownermap.push_back(chunkmap);
             }
         }
-        cout << endl;
     }
 
     for (string chunk : ownermap)
@@ -364,6 +345,18 @@ void putD(string ip, string port, string gid, string filename, string filepath)
     fpath.filenames_paths[filename] = filepath;
     filenameWithPaths.push_back(fpath);
 }
+void putC(string ip, string port, string gid, string filename)
+{
+    for (auto it = downloading[gid].begin(); it != downloading[gid].end(); ++it)
+    {
+        if ((*it) == filename)
+        {
+            downloading[gid].erase(it);
+            break;
+        }
+    }
+    completed[gid].push_back(filename);
+}
 void stop_share(string ip, string port, string gid, string filename)
 {
 
@@ -387,18 +380,6 @@ void stop_share(string ip, string port, string gid, string filename)
         }
     }
 }
-void putC(string ip, string port, string gid, string filename)
-{
-    for (auto it = downloading[gid].begin(); it != downloading[gid].end(); ++it)
-    {
-        if ((*it) == filename)
-        {
-            downloading[gid].erase(it);
-            break;
-        }
-    }
-    completed[gid].push_back(filename);
-}
 string showdownloads()
 {
     string val = "";
@@ -415,24 +396,28 @@ string showdownloads()
     }
     return val;
 }
-string list_files(string gid)
+string list_files(string gid, string ip, string port)
 {
-    string val = "";
-    for (auto p : filedetails)
+    string uid = searchUser(convertToInt(port), ip);
+    for (auto p : groups[gid])
     {
-        if (gid == p.gid)
+        if (p == uid)
         {
-            for (auto g : p.fileOwners)
+            string val = "";
+            for (auto p : filedetails)
             {
-                for (auto st : g.second)
+                if (gid == p.gid)
                 {
-                    cout << st << endl;
+                    for (auto g : p.fileOwners)
+                    {
+                        val = g.first + "\n" + val;
+                    }
                 }
-                val = g.first + "\n" + val;
             }
+            return val;
         }
     }
-    return val;
+    return "-1";
 }
 void *acceptConnection(void *arguments)
 {
@@ -461,12 +446,12 @@ void *acceptConnection(void *arguments)
         }
         if (command[0] == "create_group" || command[0] == "join_group" || command[0] == "accept_request" || command[0] == "leave_group" ||
             command[0] == "logout" || command[0] == "list_groups" || command[0] == "list_requests" || command[0] == "show_downloads" ||
-            command[0] == "list_files" || command[0] == "stop_share")
+            command[0] == "list_files" || command[0] == "stop_share" || command[0] == "upload_file")
         {
             int size = command.size() - 1;
             int port = convertToInt(command[size]);
             string ip = command[size - 1];
-            if (searchUser(port, ip) == "")
+            if (searchUser(port, ip) == "-1")
             {
                 send(clientSocD, "you are not logged in", 4096, 0);
                 continue;
@@ -556,7 +541,7 @@ void *acceptConnection(void *arguments)
         }
         else if (command[0] == "list_groups")
         {
-            string dataToSend = list_groups(); //command[1] = gid
+            string dataToSend = list_groups();
             char reqData[4096] = {
                 0,
             };
@@ -577,17 +562,17 @@ void *acceptConnection(void *arguments)
         }
         else if (command[0] == "upload_file")
         {
-            int port = convertToInt(command[4]);
-            string ip = command[3];
-            //command[2] = gid command[1]=filename command[5]= hashvaloffile command[6]=sizeoffile
-            upload_file(command[2], ip, port, command[1], command[5], command[6], command[7]);
+            // [0]upload_file   [1]filename [2]gid  [3]shaval   [4]len  [5]filepath [6]ip   [7]port
+            int port = convertToInt(command[7]);
+            string ip = command[6];
+            upload_file(command[2], ip, port, command[1], command[3], command[4], command[5]);
             char reqData[4096] = {
                 0,
             };
         }
         else if (command[0] == "download_file")
         {
-            //command[1] = gid command[2]=filename commad[5] = destpath
+            // [0]download_file [1]gid  [2]filename [3]despath
             string dataToSend = download_file(command[1], command[2]);
             char reqData[4096] = {
                 0,
@@ -595,7 +580,7 @@ void *acceptConnection(void *arguments)
             if (dataToSend.size() == 0)
                 dataToSend = "no file found";
             else
-                dataToSend = "d " + dataToSend + " " + command[1] + " " + command[2] + " " + command[5]; //d uid#ip:port$111000 uid#ip:port$1111111 shaval size gid filename despath
+                dataToSend = "d " + dataToSend + " " + command[1] + " " + command[2] + " " + command[3]; //d uid#ip:port$111000 uid#ip:port$1111111 shaval size gid filename despath
             strcpy(reqData, dataToSend.c_str());
             cout << "sending...   " << dataToSend << endl;
             send(clientSocD, reqData, 4096, 0);
@@ -617,18 +602,18 @@ void *acceptConnection(void *arguments)
         }
         else if (command[0] == "show_downloads")
         {
-            cout << data << endl;
             string dataToSend = showdownloads();
             char reqData[4096] = {
                 0,
             };
             strcpy(reqData, dataToSend.c_str());
-            cout << "sending...   " << dataToSend << endl;
             send(clientSocD, reqData, 4096, 0);
         }
         else if (command[0] == "list_files")
         {
-            string dataToSend = list_files(command[1]);
+            string dataToSend = list_files(command[1], command[2], command[3]);
+            if (dataToSend == "-1")
+                dataToSend = "you are not in the group";
             char reqData[4096] = {
                 0,
             };
@@ -637,7 +622,7 @@ void *acceptConnection(void *arguments)
         }
         else if (command[0] == "stop_share")
         {
-            // command[1] = gid command[1] = filename  command[3] = ip command[4] = port
+            // [0]stop_share [1]gid [2]filename  [3]ip [4]port
             stop_share(command[3], command[4], command[1], command[2]);
         }
     }
