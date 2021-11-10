@@ -1176,7 +1176,7 @@ void startListening(int port, string ip1, int &server_socd, struct sockaddr_in &
 }
 void covertAsServer(int cliport, string ip)
 {
-    pthread_t tid[120];
+    pthread_t tid[50];
     int server_socd;
     struct sockaddr_in address;
     startListening(cliport, ip, server_socd, address);
@@ -1195,10 +1195,10 @@ void covertAsServer(int cliport, string ip)
         check(pthread_create(&tid[i], NULL, acceptConnection, (void *)&args[i]), "Failed to create thread");
         i++;
         // cout<<"line 217"<<endl;
-        if (i >= 120)
+        if (i >= 50)
         {
             i = 0;
-            while (i < 120)
+            while (i < 50)
             {
                 pthread_join(tid[i++], NULL);
             }

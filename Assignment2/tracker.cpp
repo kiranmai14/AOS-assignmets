@@ -992,7 +992,7 @@ int main()
 
     // cout<<ip1<<" "<<port1<<" "<<ip2<<" "<<port2;
     // --------------------------------------------------------------------------------------
-    pthread_t tid[120];
+    pthread_t tid[50];
     int server_socd;
     struct sockaddr_in address, my_addr;
     startListening(port1, ip1, server_socd, address);
@@ -1006,10 +1006,10 @@ int main()
         struct clientDetails args;
         args.socketId = clientSocD;
         check(pthread_create(&tid[i++], NULL, acceptConnection, (void *)&args), "Failed to create thread");
-        if (i >= 120)
+        if (i >= 50)
         {
             i = 0;
-            while (i < 120)
+            while (i < 50)
             {
                 pthread_join(tid[i++], NULL);
             }
