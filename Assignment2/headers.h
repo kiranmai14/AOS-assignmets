@@ -27,8 +27,8 @@
 
 
 #define REGISTERED "Registered Successfully"
-#define LOGGEDIN "LoggedIn Successfully"
-#define LOGGEDIN "LoggedIn Successfully"
+#define LOGGEDIN "Logged in Successfully"
+#define LOGGEDIN "Logged in Successfully"
 #define CHUNK_SIZE 524288
 
 #define SOCKETERROR (-1)
