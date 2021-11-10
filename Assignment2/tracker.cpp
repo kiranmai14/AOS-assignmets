@@ -1,7 +1,6 @@
 #include "headers.h"
 using namespace std;
 
-
 void *acceptConnection(void *);
 
 struct fileDetails
@@ -76,6 +75,8 @@ bool login(string u, string password, string ip, int port, int socid)
 {
     if (users.find(u) != users.end() && users[u] == password)
     {
+        if (portIpUsers.find(u) != portIpUsers.end())
+            return false;
         portIpUsers[u] = make_pair(ip, port);
         SocIdsUsers[u] = socid;
         return true;
@@ -94,15 +95,21 @@ int join_group(string gid, string ip, int port)
     string owner = groups[gid][0];
     int ownerSocId = SocIdsUsers[owner];
     string uidReq = searchUser(port, ip);
+    for (string uid : groups[gid])
+    {
+        if (uid == uidReq)
+            return -1;
+    }
     pendingReq[gid].push_back(uidReq);
     return ownerSocId;
 }
 string accept_request(string gid, string uid, string uidOwn)
 {
     string owner = groups[gid][0];
+    vector<string>::iterator it;
     if (owner == uidOwn)
     {
-        for (auto it = pendingReq[gid].begin(); it != pendingReq[gid].end(); ++it)
+        for (it = pendingReq[gid].begin(); it != pendingReq[gid].end(); ++it)
         {
             if (*it == uid)
             {
@@ -111,6 +118,7 @@ string accept_request(string gid, string uid, string uidOwn)
             }
         }
         groups[gid].push_back(uid);
+        userGids[uid] = gid;
         return "accepted";
     }
     else
@@ -118,18 +126,19 @@ string accept_request(string gid, string uid, string uidOwn)
         return "you are not owner of the group";
     }
 }
-void leave_group(string gid, string ip, int port)
+bool leave_group(string gid, string ip, int port)
 {
     string userId = searchUser(port, ip);
-    vector<int>::iterator it;
-    for (auto it = groups[gid].begin(); it != groups[gid].end(); ++it)
+    vector<string>::iterator it;
+    for (it = groups[gid].begin(); it != groups[gid].end(); ++it)
     {
         if (*it == userId)
         {
             groups[gid].erase(it);
-            break;
+            return true;
         }
     }
+    return false;
 }
 string list_groups()
 {
@@ -142,7 +151,7 @@ string list_groups()
 }
 void logout(string ip, int port)
 {
-    unordered_map<string, pair<string, int>> :: iterator it;
+    unordered_map<string, pair<string, int>>::iterator it;
     for (it = portIpUsers.begin(); it != portIpUsers.end(); ++it)
     {
         if ((*it).second.first == ip && (*it).second.second == port)
@@ -326,7 +335,7 @@ void detailsOfChunk(string ip, string port, string gid, string filename, string 
     {
         if ((*it).gid == gid)
         {
-            vector<string>:: iterator fown;
+            vector<string>::iterator fown;
             for (fown = (*it).fileOwners[filename].begin(); fown != (*it).fileOwners[filename].end(); ++fown)
             {
                 std::string::size_type pos = (*fown).find('$');
@@ -345,7 +354,7 @@ void detailsOfChunk(string ip, string port, string gid, string filename, string 
 }
 void putD(string ip, string port, string gid, string filename, string filepath)
 {
-    
+
     bool flag = 0;
     downloading[gid].push_back(filename);
 
@@ -354,18 +363,17 @@ void putD(string ip, string port, string gid, string filename, string filepath)
     fpath.uid = userId;
     fpath.filenames_paths[filename] = filepath;
     filenameWithPaths.push_back(fpath);
-
 }
 void stop_share(string ip, string port, string gid, string filename)
 {
 
-    string userId = searchUser(convertToInt(port),ip);
+    string userId = searchUser(convertToInt(port), ip);
     vector<struct fileDetails>::iterator it;
     for (it = filedetails.begin(); it != filedetails.end(); it++)
     {
         if ((*it).gid == gid)
         {
-            vector<string>:: iterator fown;
+            vector<string>::iterator fown;
             for (fown = (*it).fileOwners[filename].begin(); fown != (*it).fileOwners[filename].end(); ++fown)
             {
                 std::string::size_type pos = (*fown).find('$');
@@ -446,15 +454,27 @@ void *acceptConnection(void *arguments)
         vector<string> command;
         istringstream ss(data);
         string intermediate;
-       
+
         while (ss >> intermediate)
         {
             command.push_back(intermediate);
         }
-        
+        if (command[0] == "create_group" || command[0] == "join_group" || command[0] == "accept_request" || command[0] == "leave_group" ||
+            command[0] == "logout" || command[0] == "list_groups" || command[0] == "list_requests" || command[0] == "show_downloads" ||
+            command[0] == "list_files" || command[0] == "stop_share")
+        {
+            int size = command.size() - 1;
+            int port = convertToInt(command[size]);
+            string ip = command[size - 1];
+            if (searchUser(port, ip) == "")
+            {
+                send(clientSocD, "you are not logged in", 4096, 0);
+                continue;
+            }
+        }
         if (command[0] == "create_user")
         {
-            
+            // create_user  userid  password
             if (create_user(command[1], command[2]))
                 send(clientSocD, REGISTERED, 4096, 0);
             else
@@ -462,47 +482,49 @@ void *acceptConnection(void *arguments)
         }
         else if (command[0] == "login")
         {
-            
+            // [0]login    [1]userid  [2]password    [3]ip  [4]port
             int port = convertToInt(command[4]);
             if (login(command[1], command[2], command[3], port, clientSocD))
                 send(clientSocD, LOGGEDIN, 4096, 0);
             else
-                send(clientSocD, "user doesn't exists", 4096, 0);
-        }
-        else if (command[0] == "getport")
-        {
-            send(clientSocD, "2001", 4096, 0);
+                send(clientSocD, "user doesn't exists or user already loggedin in another port", 4096, 0);
         }
         else if (command[0] == "create_group")
         {
+            // [0]create_group  [1]grpid    [2]ip   [3]port
             int port = convertToInt(command[3]);
             string ip = command[2];
+
             create_group(command[1], ip, port); //command[1] = gid
             send(clientSocD, "create group successfully", 4096, 0);
         }
         else if (command[0] == "join_group")
         {
+            // [0]join_group    [1]grpid    [2]ip   [3]port
             int port = convertToInt(command[3]);
             string ip = command[2];
             int ownSocId = join_group(command[1], ip, port);
             string uidReq = searchUser(port, ip);
-            string req = "peer " + uidReq + " " + "wants to join group" + " " + command[1];
-            char reqData[4096] = {
-                0,
-            };
-            strcpy(reqData, req.c_str());
-            cout << "line 220" << endl
-                 << reqData << endl;
-            send(ownSocId, reqData, 4096, 0);
+            string req = "";
+            if (ownSocId == -1)
+            {
+                char reqData[4096] = {
+                    0,
+                };
+                req = "you are already in the group";
+                strcpy(reqData, req.c_str());
+                send(clientSocD, reqData, 4096, 0);
+            }
         }
         else if (command[0] == "accept_request")
         {
+            // [0]accept_request    [1]gid  [2]uid  [3]ip   [4]port
             int port = convertToInt(command[4]);
             string ip = command[3];
             string gid = command[1];
             string uid = command[2];
-            string uidown = searchUser(port, ip);
-            string dataToSend = accept_request(gid, uid, uidown);
+            string uiown = searchUser(port, ip);
+            string dataToSend = accept_request(gid, uid, uiown);
             char reqData[4096] = {
                 0,
             };
@@ -519,12 +541,15 @@ void *acceptConnection(void *arguments)
         }
         else if (command[0] == "leave_group")
         {
+            // [0]leave_group   [1]grpid    [2]ip   [3]port
             int port = convertToInt(command[3]);
             string ip = command[2];
-            leave_group(command[1], ip, port); //command[1] = gid
+            if (!(leave_group(command[1], ip, port)))
+                send(clientSocD, "you are not in group", 4096, 0);
         }
         else if (command[0] == "logout")
         {
+            // [0]logout
             int port = convertToInt(command[2]);
             string ip = command[1];
             logout(ip, port);
@@ -540,6 +565,7 @@ void *acceptConnection(void *arguments)
         }
         else if (command[0] == "list_requests")
         {
+            // [0]list_requests [1]gid  [2]ip   [3]port
             int port = convertToInt(command[3]);
             string ip = command[2];
             string dataToSend = list_requests(command[1], ip, port);
@@ -607,13 +633,12 @@ void *acceptConnection(void *arguments)
                 0,
             };
             strcpy(reqData, dataToSend.c_str());
-            // cout << "sending...   " << dataToSend << endl;
             send(clientSocD, reqData, 4096, 0);
         }
         else if (command[0] == "stop_share")
         {
-           // command[1] = gid command[1] = filename  command[3] = ip command[4] = port 
-           stop_share(command[3],command[4],command[1],command[2]);
+            // command[1] = gid command[1] = filename  command[3] = ip command[4] = port
+            stop_share(command[3], command[4], command[1], command[2]);
         }
     }
     pthread_exit(NULL);
@@ -623,8 +648,8 @@ void getPortandIp(char *argv[], vector<string> &trackerdetails)
 {
     // to open the file tracker_file.txt and assign port and ip
     FILE *fp;
-    
-    fp = fopen(argv[1], "r"); 
+
+    fp = fopen(argv[1], "r");
     if (fp)
     {
         char c;
@@ -655,12 +680,11 @@ void startListening(int port, string ip1, int &server_socd, struct sockaddr_in &
     int opt = 1;
     check((server_socd = socket(AF_INET, SOCK_STREAM, 0)), "socket failed");
 
-    
     check(setsockopt(server_socd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)), "setsockopt eeror");
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = inet_addr(ip1.c_str());
     address.sin_port = htons(port);
-    
+
     check(bind(server_socd, (struct sockaddr *)&address, sizeof(address)), "bind failed");
     check(listen(server_socd, 3), "listen error");
 
@@ -673,19 +697,16 @@ unsigned int change_endian(unsigned int x)
 }
 int main(int argc, char *argv[])
 {
-    int argc = 3;
     int port1, port2, tracker_no;
     string ip1, ip2;
-
 
     if (argc < 3)
     {
         cout << "Insufficiet command line arguments" << endl;
         exit(-1);
     }
-   
 
-    tracker_no = convertToInt(argv[2]); 
+    tracker_no = convertToInt(argv[2]);
     vector<string> tracker_details;
     getPortandIp(argv, tracker_details);
     ip1 = tracker_details[0];
@@ -693,7 +714,6 @@ int main(int argc, char *argv[])
     ip2 = tracker_details[2];
     port2 = convertToInt(tracker_details[3]);
 
-   
     pthread_t tid[50];
     int server_socd;
     struct sockaddr_in address, my_addr;
