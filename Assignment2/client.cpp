@@ -378,7 +378,17 @@ void *getConnection(void *args)
     if (sha.compare(sha_of_received) == 0)
     {
         cout << "sha verified for chunk " << chunkno << endl;
-        
+        file_chunks[filepath][chunkno] = '1';
+        string mychunkmap = file_chunks[filepath];
+        data[1024] = {
+            0,
+        };
+        // sleep(1);
+        string toserver = "chunk " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename + " " + mychunkmap;
+        cout << "line 350 " << toserver << endl;
+        strcpy(data, toserver.c_str());
+        send(sockForserv, data, 1024, 0);
+        sleep(5);
     }
     else
     {
@@ -729,7 +739,8 @@ void *FromTracker(void *arguments)
             // int port = convertToInt(portstr);
             cout << "line 672" << filename << endl;
             string mychunkmap = getChunks(size);
-            file_chunks[filename] = mychunkmap;
+            string filepath = despath + filename;
+            file_chunks[filepath] = mychunkmap;
             vector<pair<string, int>> selectedpeers = givepeerinfo(received, userinfo, size, filename);
             struct downloadinfo dinfo[selectedpeers.size()];
             for (int i = 0; i < selectedpeers.size(); i++)
@@ -746,9 +757,9 @@ void *FromTracker(void *arguments)
                 dinfo[i].srcpath = userinfo[i];
                 dinfo[i].chunkno = i;
                 // cout<<userinfo[i]<<despath<<endl;
-                // cout << selectedpeers[i].first << " " << selectedpeers[i].second << endl;
+                cout << selectedpeers[i].first << " " << selectedpeers[i].second << endl;
             }
-            string filepath = despath + filename;
+            // string filepath = despath + filename;
             int fd = 0;
             mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
             if ((fd = creat(filepath.c_str(), mode)) < 0)
@@ -781,6 +792,7 @@ void *FromTracker(void *arguments)
             string toserverc = "completed " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename;
             strcpy(data, toserverc.c_str());
             send(client_socd, data, 1024, 0);
+            file_chunks.erase(filepath);
             // getConnection(ip, port, filename, size, gid, despath, srcpath, client_socd, ip_of_me, port_of_me);
         }
     }
@@ -1076,9 +1088,6 @@ void *acceptConnection(void *arguments)
         strcpy(shachar, sha_of_piece.c_str());
         // cout << "SHA   " << shachar << endl;
         send(clientSocD, shachar, 40, 0);
-
-
-
 
         int fd = 0;
         check(fd = open(filepath.c_str(), O_RDWR), "error in opening file");

@@ -426,6 +426,31 @@ void detailsOfChunk(string ip, string port, string gid, string filename, string 
 {
     string uid = searchUser(convertToInt(port), ip);
     bool flag = 0;
+    vector<struct fileDetails>::iterator it;
+    for (it = filedetails.begin(); it != filedetails.end(); it++)
+    {
+        if ((*it).gid == gid)
+        {
+            vector<string>:: iterator fown;
+            for (fown = (*it).fileOwners[filename].begin(); fown != (*it).fileOwners[filename].end(); ++fown)
+            {
+                cout << "in details of chunk"
+                     << " " << endl;
+                std::string::size_type pos = (*fown).find('$');
+                string up = (*fown).substr(0, pos);
+                if (up == uid)
+                {
+                    flag = 1;
+                    (*it).fileOwners[filename].erase(fown);
+                    cout << "line 333 erasing" << endl;
+                    break;
+                }
+            }
+            string val = uid + "$" + chunkmap;
+            cout << "line 338   " << val << endl;
+            (*it).fileOwners[filename].push_back(val);
+        }
+    }
     for (auto p : filedetails)
     {
         cout << "gid" << p.gid << " ";
@@ -816,7 +841,7 @@ void *acceptConnection(void *arguments)
         else if (command[0] == "chunk")
         {
             cout << data << endl;
-            detailsOfChunk(command[1], command[1], command[2], command[3], command[4]);
+            detailsOfChunk(command[1], command[2], command[3], command[4], command[5]);
         }
         else if (command[0] == "downloading")
         {
