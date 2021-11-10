@@ -1,14 +1,9 @@
 #include "headers.h"
-
-
 using namespace std;
+
+
 void *acceptConnection(void *);
-template <typename T1, typename T2>
-struct clientLogin
-{
-    T1 port;
-    T2 ip;
-};
+
 struct fileDetails
 {
     string gid;
@@ -59,12 +54,10 @@ string searchUser(int port, string ip)
 {
     string s;
     int p;
-    cout << "line 38" << endl;
     for (auto m : portIpUsers)
     {
         s = m.second.first;
         p = m.second.second;
-        cout << s << " " << p << endl;
         if (port == p && ip == s)
             return m.first;
     }

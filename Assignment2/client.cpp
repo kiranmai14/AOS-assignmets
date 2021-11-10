@@ -613,7 +613,9 @@ void *ToTracker(void *arguments)
         {
             inpFromUser = command[0] + " " + command[1] + " " + command[2] + " " + args->ip + " " + to_string(args->port);
         }
-        cout << "sending " << inpFromUser << endl;
+        else{
+            cout<<"Invalid command"<<endl;
+        }
         strcpy(data, inpFromUser.c_str());
         send(client_socd, data, 4096, 0);
     }
