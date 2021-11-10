@@ -218,16 +218,22 @@ string recvsha(string filepath, long long piecesize, off_t offset)
     unsigned char sha_of_file[20];
     unsigned char *file_binary = new unsigned char[piecesize];
 
+    // cout<<"In sha 221 "<<endl;
+
     bzero(file_binary, sizeof(file_binary));
     bzero(sha_of_file, sizeof(sha_of_file));
 
     char encryptedText[40];
+    // cout<<"In sha 227 "<<endl;
 
     int fp = 0;
     check(fp = open(filepath.c_str(), O_RDWR), "error in opening file");
+
     // off_t offset = i * CHUNK_SIZE;
-    long long bytesReadFromFile = pread(fp, file_binary, piecesize, offset);
+    long long bytesReadFromFile = pread(fp, file_binary, CHUNK_SIZE, offset);
+    //  cout<<"In sha 234 "<<bytesReadFromFile<<filepath<<" "<<offset<<endl;
     SHA1(file_binary, bytesReadFromFile, sha_of_file);
+    close(fp);
 
     for (int i = 0; i < 20; i++)
     {
@@ -236,7 +242,7 @@ string recvsha(string filepath, long long piecesize, off_t offset)
     string piecewiseSHA = "";
     piecewiseSHA = piecewiseSHA + encryptedText;
     free(file_binary);
-    close(fp);
+    // cout<<"In sha 244 "<<endl;
     return piecewiseSHA;
 }
 void *getConnection(void *args)
@@ -326,9 +332,9 @@ void *getConnection(void *args)
 
     // cout << "piecesize    " << pieceSize<<"  " <<chunkno<< endl;
 
-    // char sha_of_piece[40];
-    // recv(client_socd, sha_of_piece, 40, 0);
-    // string sha = sha_of_piece;
+    char sha_of_piece[40];
+    recv(client_socd, sha_of_piece, 40, 0);
+    string sha = sha_of_piece;
 
     int fp = 0;
     check(fp = open(filepath.c_str(), O_RDWR), "error in opening file");
@@ -360,24 +366,24 @@ void *getConnection(void *args)
     close(fp);
     // fclose(fp);
 
-    cout << "bytes received " << chunkno << " " << (totBytesRead) << endl;
+    // cout << "bytes received " << chunkno << " " << (totBytesRead) << endl;
 
-    // off_t offset = chunkno * CHUNK_SIZE;
-    // string sha_of_received = recvsha(filepath, pieceSize, offset);
+    off_t offset = chunkno * CHUNK_SIZE;
+    string sha_of_received = recvsha(filepath, pieceSize, offset);
     // sleep(1);
 
-    // cout << "sha of chunk " << chunkno << " " << sha << endl;
-    // cout << "my sha   " << sha_of_received << endl;
+    // cout << "ca sha " << chunkno << " " << sha << endl;
+    // cout << "my sha   " << chunkno << " " << sha_of_received << endl;
     // // sleep(2);
-    // if (sha.compare(sha_of_received) == 0)
-    // {
-    //     cout << "sha verified for chunk " << chunkno << endl;
-    // }
-    // else
-    // {
-    //     cout << "sha not matching for chunk " << chunkno << endl;
-    // }
-    
+    if (sha.compare(sha_of_received) == 0)
+    {
+        cout << "sha verified for chunk " << chunkno << endl;
+        
+    }
+    else
+    {
+        cout << "sha not matching for chunk " << chunkno << endl;
+    }
 
     // cout << "received chunk" << chunkno << endl;
     // sleep(2);
@@ -399,7 +405,7 @@ void *getConnection(void *args)
     // string end = "exit " + to_string(chunkno);
     // strcpy(data, end.c_str());
     // send(client_socd, data, 1024, 0);
-    cout << "exiting from  " << client_socd << endl;
+    // cout << "exiting from  " << client_socd << endl;
     // fflush(stdout);
     free(file_chunk);
     close(client_socd);
@@ -750,8 +756,8 @@ void *FromTracker(void *arguments)
                 perror("File creation error.");
             }
             long long len = convertToInt(size);
-            ftruncate(fd, len);
-            
+            // ftruncate(fd, len);
+
             string toserverd = "downloading " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename + " " + filepath;
             data[1024] = {
                 0,
@@ -1062,31 +1068,35 @@ void *acceptConnection(void *arguments)
         // cout<<"piecesize" <<piece_size <<"of chunk "<<chunkno<<endl;
         send(clientSocD, to_string(piece_size).c_str(), 32, 0);
 
+        off_t offset = chunkno * CHUNK_SIZE;
+        string sha_of_piece = recvsha(filepath, piece_size, offset);
+        char shachar[40] = {
+            0,
+        };
+        strcpy(shachar, sha_of_piece.c_str());
+        // cout << "SHA   " << shachar << endl;
+        send(clientSocD, shachar, 40, 0);
+
+
 
 
         int fd = 0;
         check(fd = open(filepath.c_str(), O_RDWR), "error in opening file");
         char *file_chunk = new char[piece_size];
         bzero(file_chunk, sizeof(file_chunk));
-        off_t offset = chunkno * CHUNK_SIZE;
+
         // long long offset  = 0;
 
         // fseek(fp, chunkno * CHUNK_SIZE, SEEK_SET);
         // cout << offset << endl;
-        cout << "sending " << chunkno << " " << piece_size << endl;
+        // cout << "sending " << chunkno << " " << piece_size << endl;
         long long bytesReadFromFile = pread(fd, file_chunk, CHUNK_SIZE, offset);
         close(fd);
 
         // string sha_of_piece = getpiecesha(file_chunk, bytesReadFromFile);
-        // string sha_of_piece = recvsha(filepath, piece_size, offset);
-        // char shachar[piece_size] = {
-        //     0,
-        // };
-        // strcpy(shachar, sha_of_piece.c_str());
-        // // cout << "SHA   " << shachar << endl;
-        // send(clientSocD, shachar, sizeof(shachar), 0);
+
         // long bytesReadFromFile = fread(file_chunk, sizeof(char), piece_size, fp);
-        cout << "bytes read " << bytesReadFromFile << " " << chunkno << endl;
+        // cout << "bytes read " << bytesReadFromFile << " " << chunkno << endl;
         //      << "sending chunk " << chunkno << endl;
         // offset = offset + bytesReadFromFile;
         sleep(2);
@@ -1101,7 +1111,7 @@ void *acceptConnection(void *arguments)
         cout << "exiting from  "
              << " " << chunkno << endl;
         close(clientSocD);
-       
+
         free(file_chunk);
         pthread_exit(NULL);
         // pread(fp, file_chunk, sizeof(file_chunk), offset);

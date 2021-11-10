@@ -463,17 +463,17 @@ void putD(string ip, string port, string gid, string filename, string filepath)
     fpath.filenames_paths[filename] = filepath;
     filenameWithPaths.push_back(fpath);
 
-    string chunk = "111111111111111111";
-    vector<struct fileDetails> :: iterator it;
-    string chunkmap = userId+"$"+chunk;
-    for (it = filedetails.begin(); it != filedetails.end(); it++)
-    {
-        if ((*it).gid == gid)
-        {
-            flag = 1;
-            (*it).fileOwners[filename].push_back(chunkmap);
-        }
-    }
+    // string chunk = "111111111111111111";
+    // vector<struct fileDetails> :: iterator it;
+    // string chunkmap = userId+"$"+chunk;
+    // for (it = filedetails.begin(); it != filedetails.end(); it++)
+    // {
+    //     if ((*it).gid == gid)
+    //     {
+    //         flag = 1;
+    //         (*it).fileOwners[filename].push_back(chunkmap);
+    //     }
+    // }
 }
 void insertIntocom(string gid, string uid, string filename)
 {
