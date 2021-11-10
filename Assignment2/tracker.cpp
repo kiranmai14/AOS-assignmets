@@ -193,9 +193,14 @@ string list_groups()
 }
 void logout(string ip, int port)
 {
-    for (auto it = portIpUsers.begin(); it != portIpUsers.end(); ++it)
+    for (auto x : portIpUsers)
     {
-        if ((*it).second.first == ip && (*it).second.second)
+        cout << x.first << " " << x.second.first << " " << x.second.second << endl;
+    }
+    unordered_map<string, pair<string, int>> :: iterator it;
+    for (it = portIpUsers.begin(); it != portIpUsers.end(); ++it)
+    {
+        if ((*it).second.first == ip && (*it).second.second == port)
         {
             portIpUsers.erase(it);
             break;

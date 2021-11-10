@@ -671,7 +671,14 @@ void *FromTracker(void *arguments)
         char data[1024] = {
             0,
         };
-        recv(client_socd, data, 1024, 0);
+        int nRet = recv(client_socd, data, 1024, 0);
+        if (nRet == 0)
+        {
+            cout << "something happened closing connection" << endl;
+            close(client_socd);
+            // break;
+            pthread_exit(NULL);
+        }
         cout << data << endl;
         // processing received data
         vector<string> received;
