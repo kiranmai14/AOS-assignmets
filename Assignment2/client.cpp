@@ -9,17 +9,18 @@ pthread_mutex_t lock_sha;
 pthread_mutex_t lock_rec;
 pthread_mutex_t lock_sen;
 pthread_mutex_t lock_f;
+pthread_mutex_t lock_shafile;
 
 unordered_map<string, string> file_chunks;
 
-struct arg_struct
+struct trackerSocketDetails
 {
     int arg1;
     string arg2;
     int cliport;
     string cliip;
 };
-struct arg_struct_cli
+struct socketDetails
 {
     int arg1;
     int arg2;
@@ -74,14 +75,6 @@ string getChunks(string len)
 string getSHA(string filepath)
 {
     string piecewiseSHA = "";
-    FILE *fp = NULL;
-    fp = fopen(filepath.c_str(), "r+");
-    if (fp == NULL)
-    {
-        perror("");
-        cout << "ERROR" << endl;
-        exit(-1);
-    }
 
     // getting file size
     struct stat statbuf;
@@ -97,18 +90,26 @@ string getSHA(string filepath)
     char encryptedText[40];
     int n = 0;
 
-    int j = 1;
+    pthread_mutex_lock(&lock_shafile);
+    FILE *fp = NULL;
+    fp = fopen(filepath.c_str(), "r+");
+    if (fp == NULL)
+    {
+        perror("");
+        cout << "ERROR" << endl;
+        exit(-1);
+    }
     n = fread(file_binary, 1, sizeof(file_binary), fp);
-
     SHA1(file_binary, n, sha_of_file);
+    fclose(fp);
+    pthread_mutex_unlock(&lock_shafile);
 
     for (int i = 0; i < 20; i++)
     {
         sprintf(encryptedText + 2 * i, "%02x", sha_of_file[i]);
     }
-    j++;
-    piecewiseSHA = piecewiseSHA + encryptedText;
 
+    piecewiseSHA = piecewiseSHA + encryptedText;
     free(file_binary);
     return piecewiseSHA;
 }
@@ -385,7 +386,6 @@ void *FromTracker(void *arguments)
             close(client_socd);
             pthread_exit(NULL);
         }
-        cout << data << endl;
         vector<string> received;
         istringstream sst(data);
         string inter;
@@ -423,7 +423,7 @@ void *FromTracker(void *arguments)
                 dinfo[i].despath = despath;
                 dinfo[i].srcpath = userinfo[i];
                 dinfo[i].chunkno = i;
-                cout << selectedpeers[i].first << " " << selectedpeers[i].second << endl;
+                // cout << selectedpeers[i].first << " " << selectedpeers[i].second << endl;
             }
 
             int fd = 0;
@@ -441,7 +441,7 @@ void *FromTracker(void *arguments)
             };
             strcpy(data, toserverd.c_str());
             send(client_socd, data, 4096, 0);
-            cout << selectedpeers.size() << endl;
+            cout << "Downloading..." << endl;
             for (int i = 0; i < selectedpeers.size(); i++)
             {
                 check(pthread_create(&tid[i], NULL, getConnection, (void *)&dinfo[i]), "Failed to create thread");
@@ -450,16 +450,26 @@ void *FromTracker(void *arguments)
             while (t < selectedpeers.size())
             {
                 pthread_join(tid[t++], NULL);
+                // cout << port_of_me << " " << t << endl;
             }
             data[4096] = {
                 0,
             };
-            string toserverc = "completed " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename;
-            strcpy(data, toserverc.c_str());
-            send(client_socd, data, 4096, 0);
-            file_chunks.erase(filepath);
-            cout << "Downloaded successfully" << endl;
+            string shavalue_rec = getSHA(filepath);
+            if (shaval == shavalue_rec)
+            {
+                string toserverc = "completed " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename;
+                strcpy(data, toserverc.c_str());
+                send(client_socd, data, 4096, 0);
+                file_chunks.erase(filepath);
+                cout << "SHA matched" << endl;
+                cout << "Downloaded successfully" << endl;
+            }
+            else
+                cout << "SHA do not matched" << endl;
         }
+        else
+            cout << data << endl;
     }
     pthread_exit(NULL);
 }
@@ -558,6 +568,13 @@ void *ToTracker(void *arguments)
         }
         else if (command[0] == "download_file" && !checkCount(command, 4))
             flag = 1;
+        if (command[0] == "create_user" || command[0] == "accept_request" || command[0] == "login" ||
+            command[0] == "stop_share" || command[0] == "create_group" || command[0] == "join_group" ||
+            command[0] == "leave_group" || command[0] == "logout" || command[0] == "show_downloads" ||
+            command[0] == "list_groups" || command[0] == "list_requests" || command[0] == "list_files" ||
+            command[0] == "upload_file" || command[0] == "download_file")
+        {
+        }
         else
         {
             cout << "Invalid command" << endl;
@@ -568,9 +585,9 @@ void *ToTracker(void *arguments)
             cout << "Insufficient arguments" << endl;
             continue;
         }
-        if (command[0] != "create_user")
+        if (command[0].compare("create_user") != 0)
             inpFromUser = inpFromUser + " " + args->ip + " " + to_string(args->port);
-
+        // cout<<inpFromUser<<endl;
         strcpy(data, inpFromUser.c_str());
         send(client_socd, data, 4096, 0);
     }
@@ -579,7 +596,7 @@ void *ToTracker(void *arguments)
 void *establishConnectionTracker(void *arguments)
 {
 
-    struct arg_struct *args = (struct arg_struct *)arguments;
+    struct trackerSocketDetails *args = (struct trackerSocketDetails *)arguments;
     int port = args->arg1;
     string ip = args->arg2;
     int client_socd;
@@ -613,7 +630,7 @@ void *establishConnectionTracker(void *arguments)
 
 void *acceptConnection(void *arguments)
 {
-    struct arg_struct_cli *args = (struct arg_struct_cli *)arguments;
+    struct socketDetails *args = (struct socketDetails *)arguments;
     int port = args->arg1;
     int clientSocD = args->arg2;
     char data[4096] = {
@@ -719,7 +736,7 @@ void covertAsServer(int cliport, string ip)
     struct sockaddr_in address;
     startListening(cliport, ip, server_socd, address);
     int i = 0;
-    struct arg_struct_cli args[50];
+    struct socketDetails args[50];
     while (1)
     {
         int clientSocD = 0;
@@ -761,6 +778,11 @@ int main(int argc, char *argv[])
         printf("\n mutex init failed\n");
         return 1;
     }
+    if (pthread_mutex_init(&lock_shafile, NULL) != 0)
+    {
+        printf("\n mutex init failed\n");
+        return 1;
+    }
     if (argc < 3)
     {
         cout << "Insufficiet command line arguments" << endl;
@@ -772,7 +794,7 @@ int main(int argc, char *argv[])
     getPortandIp(argv, tracker_details, port, ip);
     int tracker_port = convertToInt(tracker_details[1]);
     pthread_t peerToTracker;
-    struct arg_struct args;
+    struct trackerSocketDetails args;
     args.arg1 = tracker_port;
     args.arg2 = tracker_details[0];
     args.cliip = ip;

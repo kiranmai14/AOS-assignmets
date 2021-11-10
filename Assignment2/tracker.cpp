@@ -22,8 +22,7 @@ struct clientDetails
     string ip;
 };
 unordered_map<string, string> users;                  //[uid]->[passwd]
-unordered_map<string, vector<string>> groups;         //[grpid]->owner,users
-unordered_map<string, string> fileHash;               //[filename]->hashval
+unordered_map<string, vector<string>> groups;         //[grpid]->owner,users               //[filename]->hashval
 unordered_map<string, pair<string, int>> portIpUsers; //user->[ip,port]
 unordered_map<string, int> SocIdsUsers;               //[users]->socketId
 unordered_map<string, vector<string>> pendingReq;
@@ -73,24 +72,35 @@ bool create_user(string user, string password)
 }
 bool login(string u, string password, string ip, int port, int socid)
 {
-    if (users.find(u) != users.end() && users[u] == password)
+    string uid = searchUser(port, ip);
+    if (uid == "-1")
     {
-        if (portIpUsers.find(u) != portIpUsers.end())
+        if (users.find(u) != users.end() && users[u] == password)
+        {
+            if (portIpUsers.find(u) != portIpUsers.end())
+                return false;
+            portIpUsers[u] = make_pair(ip, port);
+            SocIdsUsers[u] = socid;
+            return true;
+        }
+        else
             return false;
-        portIpUsers[u] = make_pair(ip, port);
-        SocIdsUsers[u] = socid;
-        return true;
     }
     else
         return false;
 }
-void create_group(string gid, string ip, int port)
+bool create_group(string gid, string ip, int port)
 {
+    if (groups.find(gid) != groups.end())
+        return false;
     string userId = searchUser(port, ip);
     groups[gid].push_back(userId);
+    return true;
 }
 int join_group(string gid, string ip, int port)
 {
+    if (groups.find(gid) == groups.end())
+        return -1;
     string owner = groups[gid][0];
     int ownerSocId = SocIdsUsers[owner];
     string uidReq = searchUser(port, ip);
@@ -104,14 +114,18 @@ int join_group(string gid, string ip, int port)
 }
 string accept_request(string gid, string uid, string uidOwn)
 {
+    if (groups.find(gid) == groups.end())
+        return "group id is incorrect";
     string owner = groups[gid][0];
     vector<string>::iterator it;
+    bool flag = 0;
     if (owner == uidOwn)
     {
         for (it = pendingReq[gid].begin(); it != pendingReq[gid].end(); ++it)
         {
             if (*it == uid)
             {
+                flag = 1;
                 pendingReq[gid].erase(it);
                 break;
             }
@@ -119,13 +133,14 @@ string accept_request(string gid, string uid, string uidOwn)
         groups[gid].push_back(uid);
         return "accepted";
     }
-    else
-    {
-        return "you are not owner of the group";
-    }
+    if (!flag && owner == uidOwn)
+        return "incorrect user id";
+    return "you are not owner of the group";
 }
 bool leave_group(string gid, string ip, int port)
 {
+    if (groups.find(gid) == groups.end())
+        return false;
     string userId = searchUser(port, ip);
     vector<string>::iterator it;
     for (it = groups[gid].begin(); it != groups[gid].end(); ++it)
@@ -136,6 +151,28 @@ bool leave_group(string gid, string ip, int port)
             return true;
         }
     }
+    vector<struct fileDetails>::iterator it2;
+    for (it2 = filedetails.begin(); it2 != filedetails.end(); it2++)
+    {
+        if ((*it2).gid == gid)
+        {
+            unordered_map<string, vector<string>>::iterator fname;
+            for (fname = (*it2).fileOwners.begin(); fname != (*it2).fileOwners.end(); ++fname)
+            {
+                vector<string>::iterator fown;
+                for (fown = (*fname).second.begin(); fown != (*fname).second.end(); ++fown)
+                {
+                    std::string::size_type pos = (*fown).find('$');
+                    string up = (*fown).substr(0, pos);
+                    if (up == userId)
+                    {
+                        (*fname).second.erase(fown);
+                        break;
+                    }
+                }
+            }
+        }
+    }
     return false;
 }
 string list_groups()
@@ -143,7 +180,7 @@ string list_groups()
     string groupIds = "";
     for (auto m : groups)
     {
-        groupIds = groupIds + " " + m.first;
+        groupIds =  m.first +" " +groupIds;
     }
     return groupIds;
 }
@@ -161,6 +198,8 @@ void logout(string ip, int port)
 }
 string list_requests(string gid, string ip, int port)
 {
+    if (groups.find(gid) == groups.end())
+        return "group id is incorrect";
     vector<string> reqlist = pendingReq[gid];
     string userId = searchUser(port, ip);
     string requests = "";
@@ -186,13 +225,15 @@ string getChunks(string len)
         bitmap += '1';
     return bitmap;
 }
-void upload_file(string gid, string ip, int port, string filename, string shaval, string len, string filepath)
+bool upload_file(string gid, string ip, int port, string filename, string shaval, string len, string filepath)
 {
+
+    if (groups.find(gid) == groups.end())
+        return false;
     string userId = searchUser(port, ip);
     string chunkmap = "";
     string bitmap = getChunks(len);
     chunkmap = userId + "$" + bitmap;
-
     bool flag = 0;
     vector<struct fileDetails>::iterator it;
     for (it = filedetails.begin(); it != filedetails.end(); it++)
@@ -208,7 +249,6 @@ void upload_file(string gid, string ip, int port, string filename, string shaval
 
     if (!flag)
     {
-
         struct fileDetails filed;
         filed.gid = gid;
 
@@ -234,8 +274,6 @@ void upload_file(string gid, string ip, int port, string filename, string shaval
         if ((*it2).uid == userId)
         {
             flag2 = 1;
-            cout << "line 324"
-                 << "inserting";
             (*it2).filenames_paths[filename] = filepath;
         }
     }
@@ -250,6 +288,7 @@ void upload_file(string gid, string ip, int port, string filename, string shaval
         fpath.filenames_paths = fmap;
         filenameWithPaths.push_back(fpath);
     }
+    return true;
 }
 string getPath(string uid, string fname)
 {
@@ -260,9 +299,12 @@ string getPath(string uid, string fname)
             return p.filenames_paths[fname];
         }
     }
+    return "-1";
 }
 string download_file(string gid, string filename)
 {
+    if (groups.find(gid) == groups.end())
+        return "group id is incorrect or group not exists";
     string shaval = "";
     string len = "";
     string port;
@@ -276,6 +318,8 @@ string download_file(string gid, string filename)
         {
             shaval = p.sha_filenames[filename].first;
             len = p.sha_filenames[filename].second;
+            if (p.fileOwners.find(filename) == p.fileOwners.end())
+                return "file not found";
             for (auto chunkmap : p.fileOwners[filename])
             {
                 ownermap.push_back(chunkmap);
@@ -357,9 +401,10 @@ void putC(string ip, string port, string gid, string filename)
     }
     completed[gid].push_back(filename);
 }
-void stop_share(string ip, string port, string gid, string filename)
+string stop_share(string ip, string port, string gid, string filename)
 {
-
+    if (groups.find(gid) == groups.end())
+        return "group id is incorrect or group not exists";
     string userId = searchUser(convertToInt(port), ip);
     vector<struct fileDetails>::iterator it;
     for (it = filedetails.begin(); it != filedetails.end(); it++)
@@ -367,6 +412,8 @@ void stop_share(string ip, string port, string gid, string filename)
         if ((*it).gid == gid)
         {
             vector<string>::iterator fown;
+            if ((*it).fileOwners.find(filename) == (*it).fileOwners.end())
+                return "file not found";
             for (fown = (*it).fileOwners[filename].begin(); fown != (*it).fileOwners[filename].end(); ++fown)
             {
                 std::string::size_type pos = (*fown).find('$');
@@ -379,6 +426,7 @@ void stop_share(string ip, string port, string gid, string filename)
             }
         }
     }
+    return "0";
 }
 string showdownloads()
 {
@@ -398,6 +446,8 @@ string showdownloads()
 }
 string list_files(string gid, string ip, string port)
 {
+    if (groups.find(gid) == groups.end())
+        return "group id is incorrect or group not exists";
     string uid = searchUser(convertToInt(port), ip);
     for (auto p : groups[gid])
     {
@@ -417,7 +467,7 @@ string list_files(string gid, string ip, string port)
             return val;
         }
     }
-    return "-1";
+    return "you are not in the group";
 }
 void *acceptConnection(void *arguments)
 {
@@ -436,6 +486,7 @@ void *acceptConnection(void *arguments)
             close(clientSocD);
             pthread_exit(NULL);
         }
+        // cout<<data<<endl;
         vector<string> command;
         istringstream ss(data);
         string intermediate;
@@ -448,13 +499,16 @@ void *acceptConnection(void *arguments)
             command[0] == "logout" || command[0] == "list_groups" || command[0] == "list_requests" || command[0] == "show_downloads" ||
             command[0] == "list_files" || command[0] == "stop_share" || command[0] == "upload_file")
         {
-            int size = command.size() - 1;
-            int port = convertToInt(command[size]);
-            string ip = command[size - 1];
-            if (searchUser(port, ip) == "-1")
+            if (command.size() > 2)
             {
-                send(clientSocD, "you are not logged in", 4096, 0);
-                continue;
+                int size = command.size() - 1;
+                int port = convertToInt(command[size]);
+                string ip = command[size - 1];
+                if (searchUser(port, ip) == "-1")
+                {
+                    send(clientSocD, "you are not logged in", 4096, 0);
+                    continue;
+                }
             }
         }
         if (command[0] == "create_user")
@@ -472,7 +526,7 @@ void *acceptConnection(void *arguments)
             if (login(command[1], command[2], command[3], port, clientSocD))
                 send(clientSocD, LOGGEDIN, 4096, 0);
             else
-                send(clientSocD, "user doesn't exists or user already loggedin in another port", 4096, 0);
+                send(clientSocD, "user doesn't exists or already logged", 4096, 0);
         }
         else if (command[0] == "create_group")
         {
@@ -480,8 +534,17 @@ void *acceptConnection(void *arguments)
             int port = convertToInt(command[3]);
             string ip = command[2];
 
-            create_group(command[1], ip, port); //command[1] = gid
-            send(clientSocD, "create group successfully", 4096, 0);
+            if (create_group(command[1], ip, port)) //command[1] = gid
+                send(clientSocD, "create group successfully", 4096, 0);
+            else
+            {
+                char reqData[4096] = {
+                    0,
+                };
+                string req = "Group already exists";
+                strcpy(reqData, req.c_str());
+                send(clientSocD, reqData, 4096, 0);
+            }
         }
         else if (command[0] == "join_group")
         {
@@ -496,7 +559,7 @@ void *acceptConnection(void *arguments)
                 char reqData[4096] = {
                     0,
                 };
-                req = "you are already in the group";
+                req = "you are already in the group or groupid is incorrect";
                 strcpy(reqData, req.c_str());
                 send(clientSocD, reqData, 4096, 0);
             }
@@ -530,7 +593,7 @@ void *acceptConnection(void *arguments)
             int port = convertToInt(command[3]);
             string ip = command[2];
             if (!(leave_group(command[1], ip, port)))
-                send(clientSocD, "you are not in group", 4096, 0);
+                send(clientSocD, "you are not in group or groupid is incorrect", 4096, 0);
         }
         else if (command[0] == "logout")
         {
@@ -542,6 +605,8 @@ void *acceptConnection(void *arguments)
         else if (command[0] == "list_groups")
         {
             string dataToSend = list_groups();
+            if (dataToSend == "")
+                dataToSend = "No files found";
             char reqData[4096] = {
                 0,
             };
@@ -554,6 +619,8 @@ void *acceptConnection(void *arguments)
             int port = convertToInt(command[3]);
             string ip = command[2];
             string dataToSend = list_requests(command[1], ip, port);
+            if (dataToSend == "")
+                dataToSend = "No requests found";
             char reqData[4096] = {
                 0,
             };
@@ -565,10 +632,15 @@ void *acceptConnection(void *arguments)
             // [0]upload_file   [1]filename [2]gid  [3]shaval   [4]len  [5]filepath [6]ip   [7]port
             int port = convertToInt(command[7]);
             string ip = command[6];
-            upload_file(command[2], ip, port, command[1], command[3], command[4], command[5]);
-            char reqData[4096] = {
-                0,
-            };
+            if (!(upload_file(command[2], ip, port, command[1], command[3], command[4], command[5])))
+            {
+                char reqData[4096] = {
+                    0,
+                };
+                string dataToSend = "Group is not present";
+                strcpy(reqData, dataToSend.c_str());
+                send(clientSocD, reqData, 4096, 0);
+            }
         }
         else if (command[0] == "download_file")
         {
@@ -577,8 +649,8 @@ void *acceptConnection(void *arguments)
             char reqData[4096] = {
                 0,
             };
-            if (dataToSend.size() == 0)
-                dataToSend = "no file found";
+            if (dataToSend == "group id is incorrect or group not exists" || dataToSend == "file not found")
+                dataToSend = dataToSend;
             else
                 dataToSend = "d " + dataToSend + " " + command[1] + " " + command[2] + " " + command[3]; //d uid#ip:port$111000 uid#ip:port$1111111 shaval size gid filename despath
             strcpy(reqData, dataToSend.c_str());
@@ -603,6 +675,8 @@ void *acceptConnection(void *arguments)
         else if (command[0] == "show_downloads")
         {
             string dataToSend = showdownloads();
+            if (dataToSend == "")
+                dataToSend = "No files found";
             char reqData[4096] = {
                 0,
             };
@@ -612,8 +686,8 @@ void *acceptConnection(void *arguments)
         else if (command[0] == "list_files")
         {
             string dataToSend = list_files(command[1], command[2], command[3]);
-            if (dataToSend == "-1")
-                dataToSend = "you are not in the group";
+            if (dataToSend == "")
+                dataToSend = "No files found";
             char reqData[4096] = {
                 0,
             };
@@ -623,7 +697,15 @@ void *acceptConnection(void *arguments)
         else if (command[0] == "stop_share")
         {
             // [0]stop_share [1]gid [2]filename  [3]ip [4]port
-            stop_share(command[3], command[4], command[1], command[2]);
+            string dataToSend = stop_share(command[3], command[4], command[1], command[2]);
+            if (dataToSend.size() > 1)
+            {
+                char reqData[4096] = {
+                    0,
+                };
+                strcpy(reqData, dataToSend.c_str());
+                send(clientSocD, reqData, 4096, 0);
+            }
         }
     }
     pthread_exit(NULL);
