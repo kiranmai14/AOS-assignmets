@@ -377,7 +377,7 @@ void *FromTracker(void *arguments)
         int nRet = recv(client_socd, data, 4096, 0);
         if (nRet == 0)
         {
-            cout << "connection with tracker is lost" << endl;
+            cout << "--> connection with tracker is lost" << endl;
             close(client_socd);
             pthread_exit(NULL);
         }
@@ -436,7 +436,7 @@ void *FromTracker(void *arguments)
             };
             strcpy(data, toserverd.c_str());
             send(client_socd, data, 4096, 0);
-            cout << "Downloading..." << endl;
+            cout << "--> Downloading..." << endl;
             for (int i = 0; i < selectedpeers.size(); i++)
             {
                 check(pthread_create(&tid[i], NULL, getConnection, (void *)&dinfo[i]), "Failed to create thread");
@@ -457,14 +457,14 @@ void *FromTracker(void *arguments)
                 strcpy(data, toserverc.c_str());
                 send(client_socd, data, 4096, 0);
                 file_chunks.erase(filepath);
-                cout << "SHA matched" << endl;
-                cout << "Downloaded successfully" << endl;
+                cout << "--> SHA matched" << endl;
+                cout << "--> Downloaded successfully" << endl;
             }
             else
-                cout << "SHA do not matched" << endl;
+                cout << "--> SHA do not matched" << endl;
         }
         else
-            cout << data << endl;
+            cout << "--> " << data << endl;
     }
     pthread_exit(NULL);
 }
@@ -490,48 +490,63 @@ void *ToTracker(void *arguments)
 {
     struct clientDetails *args = (struct clientDetails *)arguments;
     int client_socd = args->socketId;
+    cout << "================================" << endl
+         << "Enter Commands:" << endl
+         << "--------------------------------" << endl
+         << setw(15) << left << "create_user"
+         << "<uid> <pwd>" << endl
+         << setw(15) << left << "login"
+         << "<uid> <pwd>" << endl
+         << setw(15) << left << "create_group"
+         << "<gid>" << endl
+         << setw(15) << left << "join_group"
+         << "<gid>" << endl
+         << setw(15) << left << "leave_group"
+         << "<gid>" << endl
+         << setw(15) << left << "list_requests"
+         << "<gid>" << endl
+         << setw(15) << left << "accept_request"
+         << "<gid> <uid>" << endl
+         << setw(15) << left << "list_groups" << endl
+         << setw(15) << left << "list_files"
+         << "<gid>" << endl
+         << setw(15) << left << "upload_file"
+         << "<filepath> <gid>" << endl
+         << setw(15) << left << "download_file"
+         << "<gid> <filename> <des_path>" << endl
+         << setw(15) << left << "show_downloads" << endl
+         << setw(15) << left << "stop_share"
+         << "<gid> <filename>" << endl
+         << setw(15) << left << "logout" << endl
+
+         << "================================" << endl;
     while (1)
     {
-        cout << "================================" << endl
-             << "Enter Commands:" << endl
-             << "--------------------------------" << endl
-             << setw(15) << left << "create_user"
-             << "<uid> <pwd>" << endl
-             << setw(15) << left << "login"
-             << "<uid> <pwd>" << endl
-             << setw(15) << left << "create_group"
-             << "<gid>" << endl
-             << setw(15) << left << "join_group"
-             << "<gid>" << endl
-             << setw(15) << left << "list_requests"
-             << "<gid>" << endl
-             << setw(15) << left << "accept_request"
-             << "<gid> <uid>" << endl
-             << setw(15) << left << "list_groups" << endl
-             << setw(15) << left << "leave_group"
-             << "<gid>" << endl
-             << setw(15) << left << "upload_file"
-             << "<filepath> <gid>" << endl
-             << setw(15) << left << "download_file"
-             << "<gid> <filename> <des_path>" << endl
-             << setw(15) << left << "list_files"
-             << "<gid>" << endl
-             << setw(15) << left << "show_downloads" << endl
-             << setw(15) << left << "logout" << endl
-
-             << "================================" << endl;
         char data[4096] = {
             0,
         };
         string inpFromUser;
         getline(cin, inpFromUser);
-
+        if (inpFromUser.size() == 0)
+            continue;
         vector<string> command;
         istringstream ss(inpFromUser);
         string intermediate;
         while (ss >> intermediate)
         {
             command.push_back(intermediate);
+        }
+        if (command[0] == "create_user" || command[0] == "accept_request" || command[0] == "login" ||
+            command[0] == "stop_share" || command[0] == "create_group" || command[0] == "join_group" ||
+            command[0] == "leave_group" || command[0] == "logout" || command[0] == "show_downloads" ||
+            command[0] == "list_groups" || command[0] == "list_requests" || command[0] == "list_files" ||
+            command[0] == "upload_file" || command[0] == "download_file")
+        {
+        }
+        else
+        {
+            cout << "--> Invalid command" << endl;
+            continue;
         }
         bool flag = 0;
         if ((command[0] == "create_user" || command[0] == "accept_request" || command[0] == "login" ||
@@ -552,8 +567,15 @@ void *ToTracker(void *arguments)
         else if (command[0] == "upload_file")
         {
             if (!checkCount(command, 3))
-                flag = 1;
-
+            {
+                cout << "--> Insufficient arguments" << endl;
+                continue;
+            }
+            if (access(command[1].c_str(), F_OK) != 0)
+            {
+                cout << "--> file path is invalid" << endl;
+                continue;
+            }
             string shavalue = getSHA(command[1]);
             struct stat statbuf;
             check((stat(command[1].c_str(), &statbuf) == -1), "could not open file");
@@ -561,23 +583,29 @@ void *ToTracker(void *arguments)
             string filename = getFileName(command[1]);
             inpFromUser = command[0] + " " + filename + " " + command[2] + " " + shavalue + " " + to_string(len) + " " + command[1];
         }
-        else if (command[0] == "download_file" && !checkCount(command, 4))
-            flag = 1;
-        if (command[0] == "create_user" || command[0] == "accept_request" || command[0] == "login" ||
-            command[0] == "stop_share" || command[0] == "create_group" || command[0] == "join_group" ||
-            command[0] == "leave_group" || command[0] == "logout" || command[0] == "show_downloads" ||
-            command[0] == "list_groups" || command[0] == "list_requests" || command[0] == "list_files" ||
-            command[0] == "upload_file" || command[0] == "download_file")
+        else if (command[0] == "download_file")
         {
-        }
-        else
-        {
-            cout << "Invalid command" << endl;
-            continue;
+            if (!checkCount(command, 4))
+            {
+                cout << "--> Insufficient arguments" << endl;
+                continue;
+            }
+            // Check for path existence
+            struct stat stats;
+            stat(command[3].c_str(), &stats);
+            if (!S_ISDIR(stats.st_mode))
+            {
+                cout << "--> Invalid destination path" << endl;
+                continue;
+            }
+            int s = command[3].size() - 1;
+            if (command[3][s] != '/')
+                command[3] = command[3] + '/';
+            inpFromUser = command[0] + " " + command[1] + " " + command[2] + " " + command[3];
         }
         if (flag)
         {
-            cout << "Insufficient arguments" << endl;
+            cout << "--> Insufficient arguments" << endl;
             continue;
         }
         if (command[0].compare("create_user") != 0)
@@ -631,12 +659,12 @@ void *acceptConnection(void *arguments)
     char data[4096] = {
         0,
     };
-    
+
     send(clientSocD, "ok I will send you", 4096, 0);
     int nRet = recv(clientSocD, data, 4096, 0);
     if (nRet == 0)
     {
-        cout << "connection with client is lost" << endl;
+        cout << "--> connection with client is lost" << endl;
         close(clientSocD);
         pthread_exit(NULL);
     }
@@ -653,7 +681,7 @@ void *acceptConnection(void *arguments)
         string gid = received[2];
         string filename = received[3];
         string filepath = received[4];
-        
+
         // cout<<"downloading from"<<chunkno <<" "<<clientSocD<<endl;
 
         pthread_mutex_lock(&lock_f);
@@ -726,7 +754,7 @@ void startListening(int port, string ip1, int &server_socd, struct sockaddr_in &
     check(bind(server_socd, (struct sockaddr *)&address, sizeof(address)), "bind failed");
     check(listen(server_socd, 3), "listen error");
 
-    cout << "waiting for connection at " << port << endl;
+    cout << "--> waiting for connection at " << port << endl;
 }
 void covertAsServer(int cliport, string ip)
 {

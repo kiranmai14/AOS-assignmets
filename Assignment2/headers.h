@@ -26,9 +26,8 @@
 #include <cstdlib>
 
 
-#define REGISTERED "Registered Successfully"
-#define LOGGEDIN "Logged in Successfully"
-#define LOGGEDIN "Logged in Successfully"
+#define REGISTERED "registered successfully"
+#define LOGGEDIN "logged in successfully"
 #define CHUNK_SIZE 524288
 
 #define SOCKETERROR (-1)
