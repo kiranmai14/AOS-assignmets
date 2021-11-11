@@ -392,6 +392,8 @@ string download_file(string gid, string filename, string userid)
             allfiles = fpath + "#" + ip + ":" + port + chunk.substr(i, chunk.length() - 1) + " " + allfiles;
         }
     }
+    if (allfiles.size() == 0)
+        return "peers are not available";
 
     allfiles = allfiles + " " + shaval + " " + len; //uid#ip:port$01010101 ip:port$01010101 ip:port$01010101 shaval sizeoffileinbytes
     return allfiles;
@@ -719,7 +721,8 @@ void *acceptConnection(void *arguments)
             char reqData[4096] = {
                 0,
             };
-            if (dataToSend == "group id is incorrect or group not exists" || dataToSend == "file not found" || dataToSend == "You are not present in the group" || dataToSend == "you already have the file")
+            if (dataToSend == "group id is incorrect or group not exists" || dataToSend == "file not found" ||
+                    dataToSend == "You are not present in the group" || dataToSend == "you already have the file" || dataToSend == "peers are not available")
                 dataToSend = dataToSend;
             else
                 dataToSend = "d " + dataToSend + " " + command[1] + " " + command[2] + " " + command[3]; //d uid#ip:port$111000 uid#ip:port$1111111 shaval size gid filename despath
