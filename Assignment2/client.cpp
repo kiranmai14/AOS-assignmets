@@ -100,10 +100,10 @@ string getSHA(string filepath)
         exit(-1);
     }
     n = fread(file_binary, 1, sizeof(file_binary), fp);
-    SHA1(file_binary, n, sha_of_file);
     fclose(fp);
     pthread_mutex_unlock(&lock_shafile);
 
+    SHA1(file_binary, n, sha_of_file);
     for (int i = 0; i < 20; i++)
     {
         sprintf(encryptedText + 2 * i, "%02x", sha_of_file[i]);
@@ -169,13 +169,11 @@ string recvsha(string filepath, long long piecesize, off_t offset)
     pthread_mutex_lock(&lock_sha);
     int fp = 0;
     check(fp = open(filepath.c_str(), O_RDWR), "error in opening file");
-
     long long bytesReadFromFile = pread(fp, file_binary, CHUNK_SIZE, offset);
-
-    SHA1(file_binary, bytesReadFromFile, sha_of_file);
     close(fp);
     pthread_mutex_unlock(&lock_sha);
 
+    SHA1(file_binary, bytesReadFromFile, sha_of_file);
     for (int i = 0; i < 20; i++)
     {
         sprintf(encryptedText + 2 * i, "%02x", sha_of_file[i]);
@@ -183,7 +181,6 @@ string recvsha(string filepath, long long piecesize, off_t offset)
     string piecewiseSHA = "";
     piecewiseSHA = piecewiseSHA + encryptedText;
     free(file_binary);
-
     return piecewiseSHA;
 }
 void *getConnection(void *args)
@@ -239,15 +236,14 @@ void *getConnection(void *args)
     recv(client_socd, sha_of_piece, 40, 0);
     string sha = sha_of_piece;
 
-    pthread_mutex_lock(&lock_rec);
-    int fp = 0;
-    check(fp = open(filepath.c_str(), O_RDWR), "error in opening file");
-
     long long totBytesRead = 0;
     char *file_chunk = new char[pieceSize];
     bzero(file_chunk, sizeof(file_chunk));
     long long off = chunkno * CHUNK_SIZE;
 
+    pthread_mutex_lock(&lock_rec);
+    int fp = 0;
+    check(fp = open(filepath.c_str(), O_RDWR), "error in opening file");
     while (totBytesRead < pieceSize)
     {
         bzero(file_chunk, sizeof(file_chunk));
@@ -257,8 +253,8 @@ void *getConnection(void *args)
         off = off + bytesRead;
     }
     close(fp);
-
     pthread_mutex_unlock(&lock_rec);
+
     off_t offset = chunkno * CHUNK_SIZE;
     string sha_of_received = recvsha(filepath, pieceSize, offset);
 
@@ -691,7 +687,6 @@ void *acceptConnection(void *arguments)
             perror("file does not exist");
             pthread_exit(NULL);
         }
-
         long piece_size = 0;
         fseek(fp, chunkno * CHUNK_SIZE, SEEK_SET);
         long piece_begin = ftell(fp);
@@ -718,13 +713,14 @@ void *acceptConnection(void *arguments)
         strcpy(shachar, sha_of_piece.c_str());
         send(clientSocD, shachar, 40, 0);
 
-        pthread_mutex_lock(&lock_sen);
-        int fd = 0;
-        check(fd = open(filepath.c_str(), O_RDWR), "error in opening file");
         char *file_chunk = new char[piece_size];
         bzero(file_chunk, sizeof(file_chunk));
 
-        long long bytesReadFromFile = pread(fd, file_chunk, CHUNK_SIZE, offset);
+        long long bytesReadFromFile = 0;
+        pthread_mutex_lock(&lock_sen);
+        int fd = 0;
+        check(fd = open(filepath.c_str(), O_RDWR), "error in opening file");
+        bytesReadFromFile = pread(fd, file_chunk, CHUNK_SIZE, offset);
         close(fd);
         pthread_mutex_unlock(&lock_sen);
 

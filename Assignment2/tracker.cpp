@@ -29,6 +29,9 @@ unordered_map<string, vector<string>> pendingReq;
 unordered_map<string, vector<string>> downloading;
 unordered_map<string, vector<string>> completed;
 
+// unordered_map<string, vector<string>>::iterator fname;
+// vector<string>::iterator fown;
+
 vector<struct filepaths> filenameWithPaths;
 vector<struct fileDetails> filedetails;
 
@@ -133,49 +136,72 @@ string accept_request(string gid, string uid, string uidOwn)
             }
         }
         groups[gid].push_back(uid);
+        cout << "line 139 users of " << gid << endl;
+        for (it = groups[gid].begin(); it != groups[gid].end(); ++it)
+        {
+            cout << (*it) << " ";
+        }
         return "accepted";
     }
     if (!flag && owner == uidOwn)
         return "incorrect user id";
     return "you are not owner of the group";
 }
-bool leave_group(string gid, string ip, int port)
+string leave_group(string gid, string ip, int port)
 {
     if (groups.find(gid) == groups.end())
-        return false;
+        return "you are not in group or groupid is incorrect";
     string userId = searchUser(port, ip);
+
     vector<string>::iterator it;
-    for (it = groups[gid].begin(); it != groups[gid].end(); ++it)
-    {
-        if (*it == userId)
-        {
-            groups[gid].erase(it);
-            return true;
-        }
-    }
     vector<struct fileDetails>::iterator it2;
     for (it2 = filedetails.begin(); it2 != filedetails.end(); it2++)
     {
         if ((*it2).gid == gid)
         {
+            cout << "group id found" << endl;
             unordered_map<string, vector<string>>::iterator fname;
             for (fname = (*it2).fileOwners.begin(); fname != (*it2).fileOwners.end(); ++fname)
             {
-                vector<string>::iterator fown;
-                for (fown = (*fname).second.begin(); fown != (*fname).second.end(); ++fown)
+                vector<string> fown = (*fname).second;
+                vector<string> v;
+                for (int i = 0; i < fown.size(); i++)
                 {
-                    std::string::size_type pos = (*fown).find('$');
-                    string up = (*fown).substr(0, pos);
+                    std::string::size_type pos = fown[i].find('$');
+                    string up = fown[i].substr(0, pos);
                     if (up == userId)
                     {
-                        (*fname).second.erase(fown);
-                        break;
+                    }
+                    else
+                    {
+                        v.push_back(fown[i]);
                     }
                 }
+                cout << "line 180" << endl;
+                (*fname).second = v;
             }
         }
     }
-    return false;
+    bool fg = 0;
+    for (it = groups[gid].begin(); it != groups[gid].end(); ++it)
+    {
+        if (*it == userId)
+        {
+            fg = 1;
+            groups[gid].erase(it);
+            break;
+        }
+    }
+    if (groups[gid].size() == 0)
+    {
+        groups.erase(gid);
+        return "left group successfully";
+    }
+    if (fg)
+    {
+        return "left group successfully";
+    }
+    return "left group successfully";
 }
 string list_groups()
 {
@@ -233,6 +259,14 @@ string upload_file(string gid, string ip, int port, string filename, string shav
     if (groups.find(gid) == groups.end())
         return "group id is incorrect or group not exists";
     string userId = searchUser(port, ip);
+    bool fuser = 0;
+    for (auto p : groups[gid])
+    {
+        if (p == userId)
+            fuser = 1;
+    }
+    if (!fuser)
+        return "You are not present in the group";
     string chunkmap = "";
     string bitmap = getChunks(len);
     chunkmap = userId + "$" + bitmap;
@@ -243,14 +277,13 @@ string upload_file(string gid, string ip, int port, string filename, string shav
         if ((*it).gid == gid)
         {
             flag = 1;
-            if ((*it).fileOwners.find(filename) != (*it).fileOwners.end())
+            if ((*it).fileOwners.find(filename) != (*it).fileOwners.end() && (*it).fileOwners[filename].size() > 0)
                 return "file is already present in the group";
             (*it).fileOwners[filename].push_back(chunkmap);
             (*it).sha_filenames[filename].first = shaval;
             (*it).sha_filenames[filename].second = len;
         }
     }
-
     if (!flag)
     {
         struct fileDetails filed;
@@ -305,10 +338,18 @@ string getPath(string uid, string fname)
     }
     return "-1";
 }
-string download_file(string gid, string filename)
+string download_file(string gid, string filename, string userid)
 {
     if (groups.find(gid) == groups.end())
         return "group id is incorrect or group not exists";
+    bool fuser = 0;
+    for (auto p : groups[gid])
+    {
+        if (p == userid)
+            fuser = 1;
+    }
+    if (!fuser)
+        return "You are not present in the group";
     string shaval = "";
     string len = "";
     string port;
@@ -323,7 +364,9 @@ string download_file(string gid, string filename)
         if (p.gid == gid)
         {
             if (p.fileOwners.find(filename) == p.fileOwners.end())
+            {
                 return "file not found";
+            }
             shaval = p.sha_filenames[filename].first;
             len = p.sha_filenames[filename].second;
             for (auto chunkmap : p.fileOwners[filename])
@@ -332,7 +375,8 @@ string download_file(string gid, string filename)
             }
         }
     }
-
+    if (ownermap.size() == 0)
+        return "file not found";
     for (string chunk : ownermap)
     {
         string owner = "";
@@ -342,9 +386,11 @@ string download_file(string gid, string filename)
         {
             if (chunk[i] == '$')
                 break;
-
             owner = owner + chunk[i];
         }
+        // cout << "owner" << owner << endl;
+        if (owner == userid)
+            return "you already downloaded the file";
         if (portIpUsers.find(owner) != portIpUsers.end())
         {
             ip = portIpUsers[owner].first;
@@ -458,25 +504,30 @@ string list_files(string gid, string ip, string port)
     if (groups.find(gid) == groups.end())
         return "group id is incorrect or group not exists";
     string uid = searchUser(convertToInt(port), ip);
+    bool fuser = 0;
     for (auto p : groups[gid])
     {
         if (p == uid)
+            fuser = 1;
+    }
+    if (!fuser)
+        return "You are not present in the group";
+    string val = "";
+    for (auto p : filedetails)
+    {
+        if (gid == p.gid)
         {
-            string val = "";
-            for (auto p : filedetails)
+            for (auto g : p.fileOwners)
             {
-                if (gid == p.gid)
-                {
-                    for (auto g : p.fileOwners)
-                    {
-                        val = g.first + "\n" + val;
-                    }
-                }
+                if (g.second.size() > 0)
+                    val = g.first + " " + val;
             }
-            return val;
         }
     }
-    return "you are not in the group";
+    if (val.size() == 0)
+        return "no files found";
+    else
+        return val;
 }
 void *acceptConnection(void *arguments)
 {
@@ -610,8 +661,12 @@ void *acceptConnection(void *arguments)
             // [0]leave_group   [1]grpid    [2]ip   [3]port
             int port = convertToInt(command[3]);
             string ip = command[2];
-            if (!(leave_group(command[1], ip, port)))
-                send(clientSocD, "you are not in group or groupid is incorrect", 4096, 0);
+            string dataToSend = leave_group(command[1], ip, port);
+            char reqData[4096] = {
+                0,
+            };
+            strcpy(reqData, dataToSend.c_str());
+            send(clientSocD, reqData, 4096, 0);
         }
         else if (command[0] == "logout")
         {
@@ -665,12 +720,13 @@ void *acceptConnection(void *arguments)
         }
         else if (command[0] == "download_file")
         {
-            // [0]download_file [1]gid  [2]filename [3]despath
-            string dataToSend = download_file(command[1], command[2]);
+            // [0]download_file [1]gid  [2]filename [3]despath  [4]ip   [5]port
+            string userid = searchUser(convertToInt(command[5]), command[4]);
+            string dataToSend = download_file(command[1], command[2], userid);
             char reqData[4096] = {
                 0,
             };
-            if (dataToSend == "group id is incorrect or group not exists" || dataToSend == "file not found")
+            if (dataToSend == "group id is incorrect or group not exists" || dataToSend == "file not found" || dataToSend == "You are not present in the group" || dataToSend == "you already have the file")
                 dataToSend = dataToSend;
             else
                 dataToSend = "d " + dataToSend + " " + command[1] + " " + command[2] + " " + command[3]; //d uid#ip:port$111000 uid#ip:port$1111111 shaval size gid filename despath
@@ -680,17 +736,17 @@ void *acceptConnection(void *arguments)
         }
         else if (command[0] == "chunk")
         {
-            cout << data << endl;
+            // cout << data << endl;
             detailsOfChunk(command[1], command[2], command[3], command[4], command[5]);
         }
         else if (command[0] == "downloading")
         {
-            cout << data << endl;
+            // cout << data << endl;
             putD(command[1], command[2], command[3], command[4], command[5]);
         }
         else if (command[0] == "completed")
         {
-            cout << data << endl;
+            // cout << data << endl;
             putC(command[1], command[2], command[3], command[4]);
         }
         else if (command[0] == "show_downloads")

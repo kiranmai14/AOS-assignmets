@@ -12,70 +12,67 @@ struct fileDetails
     // unordered_map<string, vector<string>> filenames_paths;
 };
 vector<struct fileDetails> filedetails;
+// unordered_map<string, vector<string>>::iterator fname;
+//  vector<string>::iterator fown;
 
-void upload_file(string gid, string ip, int port, string filename, string shaval, string len, string filepath)
+void leave_group(string gid, string uid)
 {
-    string userId = "A";
-    // fileHash[filename] = hashval;
-    string chunkmap = "";
-    string bitmap = "123456";
-    chunkmap = userId + "$" + bitmap;
-    bool flag = 0;
-
-    vector<struct fileDetails> :: iterator it;
-    for(it = filedetails.begin();it!=filedetails.end();it++)
+    vector <vector<string>::iterator> v;
+    vector<string>::iterator it;
+    vector<struct fileDetails>::iterator it2;
+    for (it2 = filedetails.begin(); it2 != filedetails.end(); it2++)
     {
-        if((*it).gid == gid)
+        if ((*it2).gid == gid)
         {
-             flag = 1;
-            (*it).fileOwners[filename].push_back(chunkmap);
-            (*it).sha_filenames[filename].first = shaval;
-            (*it).sha_filenames[filename].second = len;
+            unordered_map<string, vector<string>>::iterator fname;
+            
+            for (fname = (*it2).fileOwners.begin(); fname != (*it2).fileOwners.end(); ++fname)
+            {
+                vector<string> fown = (*fname).second;
+                vector<string> v;
+                for(int i=0;i<fown.size();i++)
+                {
+                    std::string::size_type pos = fown[i].find('$');
+                    string up = fown[i].substr(0, pos);
+                    if (up == uid)
+                    {
+                       
+                    }
+                    else{
+                        v.push_back(fown[i]);
+                    }
+                }
+                (*fname).second = v;
+                // for (fown = (*fname).second.begin(); fown != (*fname).second.end(); ++fown)
+                // {
+                //     std::string::size_type pos = (*fown).find('$');
+                //     string up = (*fown).substr(0, pos);
+                //     if (up == uid)
+                //     {
+                //         (*fname).second.erase(fown);
+                //     }
+                // }
+            }
+            
         }
-    }
-
-    // for (struct fileDetails p : filedetails)
-    // {
-    //     if (p.gid == gid)
-    //     {
-    //         flag = 1;
-    //         unordered_map<string, vector<string>> temp = p.fileOwners;
-    //         temp[filename].push_back(chunkmap);
-    //         p.fileOwners = temp;
-    //         // p.fileOwners[filename].push_back(chunkmap);
-    //         p.sha_filenames[filename].first = shaval;
-    //         p.sha_filenames[filename].second = len;
-    //     }
-    // }
-
-    if (!flag)
-    {
-        struct fileDetails filed;
-        filed.gid = gid;
-
-        unordered_map<string, vector<string>> unmap;
-        vector<string> v;
-        v.push_back(chunkmap);
-        unmap[filename] = v;
-        filed.fileOwners = unmap;
-
-        unordered_map<string, pair<string, string>> shamap;
-        pair<string, string> p;
-        p.first = shaval;
-        p.second = len;
-        shamap[filename] = p;
-        filed.sha_filenames = shamap;
-        filedetails.push_back(filed);
     }
 }
 
 int main()
 {
 
-    upload_file("1", "127.0.0.1", 4000, "test.pdf", "sh", "23455", "/home/kiran");
-    upload_file("1", "127.0.0.1", 4000, "test.pdf", "sh", "23455", "/home/kiran");
-    upload_file("1", "127.0.0.1", 4000, "test2.pdf", "sh", "23455", "/home/kiran");
-    string gid ="1";
+    struct fileDetails a, b;
+    a.gid = "1";
+    a.fileOwners["test.cpp"].push_back("user1$100111");
+    a.sha_filenames["test.cpp"].first = "sha1";
+    a.sha_filenames["test.cpp"].second = "23456";
+
+    a.fileOwners["test.cpp"].push_back("user2$100111");
+    filedetails.push_back(a);
+
+    leave_group("1", "user1");
+
+    string gid = "1";
     for (auto p : filedetails)
     {
         if (gid == p.gid)
