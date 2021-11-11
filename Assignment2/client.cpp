@@ -284,10 +284,6 @@ void *getConnection(void *args)
     close(client_socd);
     pthread_exit(NULL);
 }
-bool comparesort(vector<pair<string, int>> a, vector<pair<string, int>> b)
-{
-    return (a.size() < b.size());
-}
 string searchUser(unordered_map<string, pair<string, int>> portIpUsers, int port, string ip)
 {
     string s;
@@ -356,7 +352,6 @@ vector<pair<string, int>> givepeerinfo(vector<string> peerinfo, vector<string> &
         }
     }
 
-    sort(chunkpeerinfo.begin(), chunkpeerinfo.end(), comparesort);
     for (int i = 0; i < chunkpeerinfo.size(); i++)
     {
         int len_of_peerscount = chunkpeerinfo[i].size();
@@ -636,6 +631,7 @@ void *acceptConnection(void *arguments)
     char data[4096] = {
         0,
     };
+    
     send(clientSocD, "ok I will send you", 4096, 0);
     int nRet = recv(clientSocD, data, 4096, 0);
     if (nRet == 0)
@@ -657,6 +653,8 @@ void *acceptConnection(void *arguments)
         string gid = received[2];
         string filename = received[3];
         string filepath = received[4];
+        
+        // cout<<"downloading from"<<chunkno <<" "<<clientSocD<<endl;
 
         pthread_mutex_lock(&lock_f);
         FILE *fp = fopen(filepath.c_str(), "r+");
@@ -709,6 +707,7 @@ void *acceptConnection(void *arguments)
         };
         close(clientSocD);
         free(file_chunk);
+        // cout<<"exiting from"<<chunkno <<" "<<clientSocD<<endl;
         pthread_exit(NULL);
     }
     pthread_exit(NULL);
