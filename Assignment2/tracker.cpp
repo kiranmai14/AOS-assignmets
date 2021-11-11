@@ -136,11 +136,6 @@ string accept_request(string gid, string uid, string uidOwn)
             }
         }
         groups[gid].push_back(uid);
-        cout << "line 139 users of " << gid << endl;
-        for (it = groups[gid].begin(); it != groups[gid].end(); ++it)
-        {
-            cout << (*it) << " ";
-        }
         return "accepted";
     }
     if (!flag && owner == uidOwn)
@@ -159,7 +154,6 @@ string leave_group(string gid, string ip, int port)
     {
         if ((*it2).gid == gid)
         {
-            cout << "group id found" << endl;
             unordered_map<string, vector<string>>::iterator fname;
             for (fname = (*it2).fileOwners.begin(); fname != (*it2).fileOwners.end(); ++fname)
             {
@@ -177,7 +171,6 @@ string leave_group(string gid, string ip, int port)
                         v.push_back(fown[i]);
                     }
                 }
-                cout << "line 180" << endl;
                 (*fname).second = v;
             }
         }
@@ -731,7 +724,7 @@ void *acceptConnection(void *arguments)
             else
                 dataToSend = "d " + dataToSend + " " + command[1] + " " + command[2] + " " + command[3]; //d uid#ip:port$111000 uid#ip:port$1111111 shaval size gid filename despath
             strcpy(reqData, dataToSend.c_str());
-            cout << "sending...   " << dataToSend << endl;
+            // cout << "sending...   " << dataToSend << endl;
             send(clientSocD, reqData, 4096, 0);
         }
         else if (command[0] == "chunk")

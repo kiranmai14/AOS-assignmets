@@ -44,6 +44,7 @@ struct downloadinfo
     string gid;
     string despath;
     string srcpath;
+    string shaval;
 };
 int check(int exp, const char *msg)
 {
@@ -198,6 +199,7 @@ void *getConnection(void *args)
     string despath = dinfo->despath;
     string srcpath = dinfo->srcpath;
     long long chunkno = dinfo->chunkno;
+    string shaval = dinfo->shaval;
 
     int client_socd = 0;
     struct sockaddr_in address;
@@ -261,6 +263,7 @@ void *getConnection(void *args)
     if (sha.compare(sha_of_received) == 0)
     {
         // cout << "sha verified for chunk " << chunkno << endl;
+        
         file_chunks[filepath][chunkno] = '1';
         string mychunkmap = file_chunks[filepath];
         data[4096] = {
@@ -269,6 +272,34 @@ void *getConnection(void *args)
         string toserver = "chunk " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename + " " + mychunkmap;
         strcpy(data, toserver.c_str());
         send(sockForserv, data, 4096, 0);
+        bool flag =1;
+        for(int i=0;i<file_chunks[filepath].size();i++)
+        {
+            if(file_chunks[filepath][i] == '0')
+            {
+                flag = 0;
+                break;
+            }
+        }
+        if(flag)
+        {
+            data[4096] = {
+                0,
+            };
+            string shavalue_rec = getSHA(filepath);
+            if (shaval == shavalue_rec)
+            {
+                string toserverc = "completed " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename;
+                strcpy(data, toserverc.c_str());
+                send(sockForserv, data, 4096, 0);
+                file_chunks.erase(filepath);
+                cout << "--> SHA matched" << endl;
+                cout << "--> Downloaded successfully" << endl;
+            }
+            else
+                cout << "--> SHA do not matched" << endl;
+        }
+
         sleep(5);
     }
     else
@@ -414,6 +445,7 @@ void *FromTracker(void *arguments)
                 dinfo[i].despath = despath;
                 dinfo[i].srcpath = userinfo[i];
                 dinfo[i].chunkno = i;
+                dinfo[i].shaval = shaval;
                 // cout << selectedpeers[i].first << " " << selectedpeers[i].second << endl;
             }
 
@@ -433,9 +465,11 @@ void *FromTracker(void *arguments)
             strcpy(data, toserverd.c_str());
             send(client_socd, data, 4096, 0);
             cout << "--> Downloading..." << endl;
+            pthread_attr_t attr;
+            pthread_attr_init(&attr);
             for (int i = 0; i < selectedpeers.size(); i++)
             {
-                check(pthread_create(&tid[i], NULL, getConnection, (void *)&dinfo[i]), "Failed to create thread");
+                check(pthread_create(&tid[i], &attr, getConnection, (void *)&dinfo[i]), "Failed to create thread");
             }
             int t = 0;
             while (t < selectedpeers.size())
@@ -443,21 +477,22 @@ void *FromTracker(void *arguments)
                 pthread_join(tid[t++], NULL);
                 // cout << port_of_me << " " << t << endl;
             }
-            data[4096] = {
-                0,
-            };
-            string shavalue_rec = getSHA(filepath);
-            if (shaval == shavalue_rec)
-            {
-                string toserverc = "completed " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename;
-                strcpy(data, toserverc.c_str());
-                send(client_socd, data, 4096, 0);
-                file_chunks.erase(filepath);
-                cout << "--> SHA matched" << endl;
-                cout << "--> Downloaded successfully" << endl;
-            }
-            else
-                cout << "--> SHA do not matched" << endl;
+            // pthread_attr_destroy(&attr);
+            // data[4096] = {
+            //     0,
+            // };
+            // string shavalue_rec = getSHA(filepath);
+            // if (shaval == shavalue_rec)
+            // {
+            //     string toserverc = "completed " + ip_of_me + " " + to_string(port_of_me) + " " + gid + " " + filename;
+            //     strcpy(data, toserverc.c_str());
+            //     send(client_socd, data, 4096, 0);
+            //     file_chunks.erase(filepath);
+            //     cout << "--> SHA matched" << endl;
+            //     cout << "--> Downloaded successfully" << endl;
+            // }
+            // else
+            //     cout << "--> SHA do not matched" << endl;
         }
         else
             cout << "--> " << data << endl;
@@ -754,12 +789,16 @@ void startListening(int port, string ip1, int &server_socd, struct sockaddr_in &
 }
 void covertAsServer(int cliport, string ip)
 {
+
     pthread_t tid[50];
     int server_socd;
     struct sockaddr_in address;
     startListening(cliport, ip, server_socd, address);
     int i = 0;
     struct socketDetails args[50];
+
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
     while (1)
     {
         int clientSocD = 0;
@@ -769,7 +808,7 @@ void covertAsServer(int cliport, string ip)
         args[i].arg1 = cliport;
         args[i].arg2 = clientSocD;
 
-        check(pthread_create(&tid[i], NULL, acceptConnection, (void *)&args[i]), "Failed to create thread");
+        check(pthread_create(&tid[i], &attr, acceptConnection, (void *)&args[i]), "Failed to create thread");
         i++;
 
         if (i >= 50)
@@ -782,6 +821,7 @@ void covertAsServer(int cliport, string ip)
             i = 0;
         }
     }
+    // pthread_attr_destroy(&attr);
 }
 int main(int argc, char *argv[])
 {
