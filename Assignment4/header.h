@@ -15,6 +15,13 @@ struct inode //totalsize = 12*4 + 56 + 8 = 128
     int inode_num;
     char filename[52];               //just wanted size to be a multiple of 2 so gave 52
     int pointers_to_data_blocks[16]; //12 direct 2 indirect 2 double indirect
+    inode()
+    {
+        for (int j = 0; j < 52; j++)
+            filename[j] = 0;
+        for (int j = 0; j < 16; j++)
+            pointers_to_data_blocks[j] = -1;
+    }
 };
 struct super_block //totalsize = 9*4 + 65536 + 128974 = 194548    ceil(194548/4KB) = 48 so it uses 48 blocks
 {
@@ -55,3 +62,16 @@ struct super_block //totalsize = 9*4 + 65536 + 128974 = 194548    ceil(194548/4K
 // cout << "bitmap_data_starting_index " << in.bitmap_data_starting_index << endl;
 // cout << "bitmap_inode " << in.bitmap_inode[0] << endl;
 // cout << "bitmap_data " << in.bitmap_data[0] << endl;
+// cout << endl;
+// cout << sizeof(sb) << endl;
+// cout << "blocks_usedby_superblock " << sb.blocks_usedby_superblock << endl;
+// cout << "blocks_usedby_inode " << sb.blocks_usedby_inode << endl;
+// cout << "blocks_usedby_data " << sb.blocks_usedby_data << endl;
+// cout << "blocks_usedby_inode_bitmap " << sb.blocks_usedby_inode_bitmap << endl;
+// cout << "blocks_usedby_data_bitmap " << sb.blocks_usedby_data_bitmap << endl;
+// cout << "inode_starting_index " << sb.inode_starting_index << endl;
+// cout << "data_starting_index " << sb.data_starting_index << endl;
+// cout << "bitmap_inode_starting_index " << sb.bitmap_inode_starting_index << endl;
+// cout << "bitmap_data_starting_index " << sb.bitmap_data_starting_index << endl;
+// cout << "bitmap_inode " << sb.bitmap_inode[0] << endl;
+// cout << "bitmap_data " << sb.bitmap_data[0] << endl;
