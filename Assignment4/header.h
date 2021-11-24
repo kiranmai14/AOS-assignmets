@@ -1,19 +1,20 @@
 #include <bits/stdc++.h>
 #include <unistd.h>
 #include <math.h>
+#include <fstream>
 using namespace std;
 
 #define BLOCK_SIZE 4096
-#define NO_OF_BLOCKS 131072 // (512MB/4KB = 131072)
-#define NO_OF_INODES 65536  //just wanted to be a multiple of 2. so we can have 65536 files in our filesystem
-#define NO_OF_DATA_BLOCKS 128976   // NO_OF_BLOCKS - NO_OF_INODES - NO_OF_BLOCKS USEDBY_SUPER_BLOCK = 131072 - 2048 - 48 = 128976
-
+#define NO_OF_BLOCKS 131072      // (512MB/4KB = 131072)
+#define NO_OF_INODES 65536       //just wanted to be a multiple of 2. so we can have 65536 files in our filesystem
+#define NO_OF_DATA_BLOCKS 128976 // NO_OF_BLOCKS - NO_OF_INODES - NO_OF_BLOCKS USEDBY_SUPER_BLOCK = 131072 - 2048 - 48 = 128976
 
 struct inode //totalsize = 12*4 + 56 + 8 = 128
 {
-    int pointers_to_data_blocks[16]; //12 direct 2 indirect 2 double indirect
-    char filename[56]; //just wanted size to be a multiple of 2 so gave 56
     long long filesize;
+    int inode_num;
+    char filename[52];               //just wanted size to be a multiple of 2 so gave 52
+    int pointers_to_data_blocks[16]; //12 direct 2 indirect 2 double indirect
 };
 struct super_block //totalsize = 9*4 + 65536 + 128974 = 194548    ceil(194548/4KB) = 48 so it uses 48 blocks
 {
@@ -41,3 +42,16 @@ struct super_block //totalsize = 9*4 + 65536 + 128974 = 194548    ceil(194548/4K
 // bitmap_data_starting_index 65572
 // bitmap_inode[0] 0
 // bitmap_data[0] 0
+// struct super_block in;
+// cout << sizeof(in) << endl;
+// cout << "blocks_usedby_superblock " << in.blocks_usedby_superblock << endl;
+// cout << "blocks_usedby_inode " << in.blocks_usedby_inode << endl;
+// cout << "blocks_usedby_data " << in.blocks_usedby_data << endl;
+// cout << "blocks_usedby_inode_bitmap " << in.blocks_usedby_inode_bitmap << endl;
+// cout << "blocks_usedby_data_bitmap " << in.blocks_usedby_data_bitmap << endl;
+// cout << "inode_starting_index " << in.inode_starting_index << endl;
+// cout << "data_starting_index " << in.data_starting_index << endl;
+// cout << "bitmap_inode_starting_index " << in.bitmap_inode_starting_index << endl;
+// cout << "bitmap_data_starting_index " << in.bitmap_data_starting_index << endl;
+// cout << "bitmap_inode " << in.bitmap_inode[0] << endl;
+// cout << "bitmap_data " << in.bitmap_data[0] << endl;
