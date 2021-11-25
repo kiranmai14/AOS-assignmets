@@ -8,6 +8,7 @@ using namespace std;
 #define NO_OF_BLOCKS 131072      // (512MB/4KB = 131072)
 #define NO_OF_INODES 65536       //just wanted to be a multiple of 2. so we can have 65536 files in our filesystem
 #define NO_OF_DATA_BLOCKS 128976 // NO_OF_BLOCKS - NO_OF_INODES - NO_OF_BLOCKS USEDBY_SUPER_BLOCK = 131072 - 2048 - 48 = 128976
+#define FILE_DESCRIPTORS_COUNT 32
 
 struct inode //totalsize = 12*4 + 56 + 8 = 128
 {
