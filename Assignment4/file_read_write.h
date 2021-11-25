@@ -52,28 +52,53 @@ string get_input()
     disableRawMode();
     return data;
 }
+
 void write_mode(int inode_num)
 {
     string data = get_input();
     int data_block_num = in[inode_num].pointers_to_data_blocks[0];
     long long data_size = data.size();
     in[inode_num].filesize = data_size;
-    cout << "Data size using size()" << data_size << endl;
-    if (data_size < BLOCK_SIZE)
+    cout << endl
+         << "Data size using size()" << data_size << endl;
+    int no_of_blocks = data_size / BLOCK_SIZE;
+    if (no_of_blocks <= 12)
     {
-        int offset = superBlock.data_starting_index + data_block_num * BLOCK_SIZE;
+        int string_offset = 0;
+        for (int i = 0; i <= no_of_blocks; i++)
+        {
+            cout << "Block number " << data_block_num << endl;
+            // updating inode
+            in[inode_num].pointers_to_data_blocks[i] = data_block_num;
 
-        char buff[BLOCK_SIZE] = {
-            0,
-        };
-        strcpy(buff, data.c_str());
+            // updating superblock bitmap
+            superBlock.bitmap_data[data_block_num] = true;
 
-        cout << "offset " << offset << endl;
+            // getting offset for next free block
+            int offset = superBlock.data_starting_index + data_block_num * BLOCK_SIZE;
+            char buff[BLOCK_SIZE] = {
+                0,
+            };
 
-        // writing the data into disk
-        disk_ptr.seekp(offset, ios::beg);
-        disk_ptr.write(buff, sizeof(buff));
-        cout << "disk pointer pos: " << disk_ptr.tellg() << endl;
+            // need to get the data of required size
+            long long len_of_piece = min((long long)BLOCK_SIZE, data_size);
+            string piece_data = data.substr(string_offset, len_of_piece);
+            strcpy(buff, piece_data.c_str());
+
+            cout << "offset " << offset << endl;
+
+            // writing the data into disk
+            disk_ptr.seekp(offset, ios::beg);
+            disk_ptr.write(buff, sizeof(buff));
+            cout << "disk pointer pos: " << disk_ptr.tellg() << endl;
+
+            // getting next free block
+            data_block_num = get_free_data_block();
+            data_size = data_size - len_of_piece;
+            string_offset = string_offset + len_of_piece;
+        }
+        // because the for loop exists but it becomes true
+        superBlock.bitmap_data[data_block_num] = false;
     }
     cout << GREEN("Data written to file successfully") << endl;
 }
@@ -214,15 +239,16 @@ void delete_file(string filename)
                 };
                 disk_ptr.seekp(offset, ios::beg);
                 disk_ptr.write(buff, sizeof(buff));
+                superBlock.bitmap_data[data_block_num] = false;
             }
         }
     }
 
     // resetting inode
     for (int j = 0; j < 16; j++)
-            in[inode_num].pointers_to_data_blocks[j] = -1;
+        in[inode_num].pointers_to_data_blocks[j] = -1;
     in[inode_num].filesize = 0;
-    memset(in[inode_num].filename,0,sizeof(in[inode_num].filename));
+    memset(in[inode_num].filename, 0, sizeof(in[inode_num].filename));
 
     // making super block clear
     superBlock.bitmap_inode[inode_num] = false;

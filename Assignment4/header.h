@@ -76,6 +76,7 @@ string mounted_disk_name;
 fstream disk_ptr;
 
 struct termios orig_termios;
+int get_free_data_block();
 // 194548
 // blocks_usedby_superblock 48
 // blocks_usedby_inode 2048
