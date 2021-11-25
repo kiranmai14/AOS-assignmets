@@ -52,8 +52,9 @@ string get_input()
     disableRawMode();
     return data;
 }
-void write_mode(int inode_num, string data)
+void write_mode(int inode_num)
 {
+    string data = get_input();
     int data_block_num = in[inode_num].pointers_to_data_blocks[0];
     long long data_size = data.size();
     in[inode_num].filesize = data_size;
@@ -76,8 +77,60 @@ void write_mode(int inode_num, string data)
     }
     cout << GREEN("Data written to file successfully") << endl;
 }
-void append_mode(int inode_num, string data)
+void append_mode(int inode_num)
 {
+    string data = get_input();
+    long long data_size = data.size();
+    int data_block_num;
+    long long file_size = in[inode_num].filesize;
+    if (file_size < 12 * BLOCK_SIZE)
+    {
+        for (int i = 0; i < 12; i++)
+        {
+            if (in[inode_num].pointers_to_data_blocks[i] == -1)
+            {
+                data_block_num = i - 1;
+                break;
+            }
+        }
+        int offset = superBlock.data_starting_index + data_block_num * BLOCK_SIZE;
+        offset = offset + (file_size % BLOCK_SIZE);
+        int buffer_size = BLOCK_SIZE - (file_size % BLOCK_SIZE);
+        if (data_size < buffer_size)
+        {
+            char buff[buffer_size] = {
+                0,
+            };
+            strcpy(buff, data.c_str());
+            cout << endl
+                 << "Buffer size " << buffer_size << endl;
+            cout << "offset " << offset << endl;
+
+            // writing the data into disk
+            disk_ptr.seekp(offset, ios::beg);
+            disk_ptr.write(buff, sizeof(buff));
+            cout << "disk pointer pos: " << disk_ptr.tellg() << endl;
+        }
+    }
+    in[inode_num].filesize = in[inode_num].filesize + data_size;
+    cout << GREEN("Data appended to file successfully") << endl;
+}
+void append_data(int file_descriptor)
+{
+    if (des_ino_mode_mp.find(file_descriptor) == des_ino_mode_mp.end())
+    {
+        cout << RED("File descriptor is not valid") << endl;
+        return;
+    }
+    if (des_ino_mode_mp[file_descriptor].second == 2)
+    {
+        append_mode(des_ino_mode_mp[file_descriptor].first);
+    }
+    else
+    {
+        cout << RED("File is not opened in correct mode") << endl;
+        return;
+    }
 }
 void write_data(int file_descriptor)
 {
@@ -89,13 +142,7 @@ void write_data(int file_descriptor)
     }
     if (des_ino_mode_mp[file_descriptor].second == 1)
     {
-        string data = get_input();
-        write_mode(des_ino_mode_mp[file_descriptor].first, data);
-    }
-    else if (des_ino_mode_mp[file_descriptor].second == 2)
-    {
-        string data = get_input();
-        append_mode(des_ino_mode_mp[file_descriptor].first, data);
+        write_mode(des_ino_mode_mp[file_descriptor].first);
     }
     else
     {

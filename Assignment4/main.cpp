@@ -224,7 +224,7 @@ void show_options_for_disk()
 {
     while (1)
     {
-        cout << BLUE("1.create file 2.open file 3.read file 4.write file 6.close file 8.list of files 9.list opened files 10.unmount") << endl;
+        cout << BLUE("1.create file 2.open file 3.read file 4.write file 5.append file 6.close file 8.list of files 9.list opened files 10.unmount") << endl;
         cout << YELLOW("Enter your choice: ");
         int choice, mode, file_desc;
         string filename, diskname;
@@ -253,6 +253,11 @@ void show_options_for_disk()
             cout << YELLOW("Enter file descriptor: ");
             cin >> file_desc;
             write_data(file_desc);
+            break;
+        case 5:
+            cout << YELLOW("Enter file descriptor: ");
+            cin >> file_desc;
+            append_data(file_desc);
             break;
         case 6:
             cout << YELLOW("Enter file descriptor: ");
