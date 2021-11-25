@@ -1,14 +1,5 @@
 #include "header.h"
-
-struct super_block superBlock;
-struct inode in[NO_OF_INODES];
-unordered_map<string, int> file_inode_mp;
-unordered_map<int, pair<int, int>> des_ino_mode_mp;
-unordered_map<string, int> file_mode_mp;
-unordered_map<int, string> desc_file_mp;
-vector<bool> file_descriptors(FILE_DESCRIPTORS_COUNT);
-string mounted_disk_name;
-fstream disk_ptr;
+#include "file_read_write.h"
 
 void create_disk(string diskname)
 {
@@ -60,6 +51,20 @@ bool mount(string diskname)
 }
 bool unmount(string diskname)
 {
+    for (int i = 0; i < FILE_DESCRIPTORS_COUNT; i++)
+    {
+        if (file_descriptors[i])
+        {
+            cout << RED("Please close opened files") << endl;
+            return false;
+        }
+    }
+
+    file_inode_mp.clear();
+    des_ino_mode_mp.clear();
+    desc_file_mp.clear();
+    file_mode_desc_mp.clear();
+    file_descriptors.clear();
 
     if (!disk_ptr.is_open())
     {
@@ -83,12 +88,7 @@ bool unmount(string diskname)
     for (int i = 0; i < NO_OF_DATA_BLOCKS; i++)
         superBlock.bitmap_data[i] = false;
 
-    file_inode_mp.clear();
-    des_ino_mode_mp.clear();
-    desc_file_mp.clear();
-    file_mode_mp.clear();
-    file_descriptors.clear();
-
+    memset(in, 0, sizeof(in));
     cout << GREEN("unmounted disk successfully") << endl;
     return true;
 }
@@ -153,7 +153,7 @@ void create_file(string filename)
     file_inode_mp[filename] = inode_num;
     superBlock.bitmap_data[data_block_num] = true;
     superBlock.bitmap_inode[inode_num] = true;
-    cout << GREEN("created file successfully ") << inode_num << endl;
+    cout << GREEN("created file successfully with inode_num") << inode_num << endl;
     for (int i = 0; i < NO_OF_INODES; i++)
     {
         if (superBlock.bitmap_inode[i])
@@ -176,7 +176,7 @@ void open_file(string filename, int mode)
         return;
     }
     int inode_num = file_inode_mp[filename];
-    file_mode_mp[filename] = mode;
+    file_mode_desc_mp[filename] = make_pair(mode, file_descriptor);
     des_ino_mode_mp[file_descriptor] = make_pair(inode_num, mode);
     desc_file_mp[file_descriptor] = filename;
     cout << GREEN("opened file with descriptor ") << YELLOW(file_descriptor) << endl;
@@ -195,14 +195,15 @@ void list_files()
 }
 void list_opened_files()
 {
-    if (file_mode_mp.size() == 0)
+    if (file_mode_desc_mp.size() == 0)
     {
         cout << GREEN("No opened files") << endl;
         return;
     }
-    for (auto name : file_mode_mp)
+    for (auto name : file_mode_desc_mp)
     {
-        cout << GREEN(name.first) << GREEN(" mode: ") << GREEN(name.second) << endl;
+        cout << GREEN(name.first) << YELLOW(" mode: ") << GREEN(name.second.first)
+             << YELLOW(" descriptor: ") << GREEN(name.second.second) << endl;
     }
 }
 void close_file(int file_descriptor)
@@ -214,7 +215,7 @@ void close_file(int file_descriptor)
     }
     string filename = desc_file_mp[file_descriptor];
     desc_file_mp.erase(file_descriptor);
-    file_mode_mp.erase(filename);
+    file_mode_desc_mp.erase(filename);
     des_ino_mode_mp.erase(file_descriptor);
     file_descriptors[file_descriptor] = false;
     cout << GREEN("closed file successfully") << endl;
@@ -223,7 +224,7 @@ void show_options_for_disk()
 {
     while (1)
     {
-        cout << BLUE("1.create file 2.open file 6.close file 8.list of files 9.list opened files 10.unmount") << endl;
+        cout << BLUE("1.create file 2.open file 3.read file 4.write file 6.close file 8.list of files 9.list opened files 10.unmount") << endl;
         cout << YELLOW("Enter your choice: ");
         int choice, mode, file_desc;
         string filename, diskname;
@@ -242,6 +243,16 @@ void show_options_for_disk()
             cout << YELLOW("Enter mode: ");
             cin >> mode;
             open_file(filename, mode);
+            break;
+        case 3:
+            cout << YELLOW("Enter file descriptor: ");
+            cin >> file_desc;
+            read_data(file_desc);
+            break;
+        case 4:
+            cout << YELLOW("Enter file descriptor: ");
+            cin >> file_desc;
+            write_data(file_desc);
             break;
         case 6:
             cout << YELLOW("Enter file descriptor: ");

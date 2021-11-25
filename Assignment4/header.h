@@ -2,6 +2,8 @@
 #include <unistd.h>
 #include <math.h>
 #include <fstream>
+#include <termios.h>
+#include <stdio.h>
 using namespace std;
 
 #define BLOCK_SIZE 4096
@@ -9,6 +11,7 @@ using namespace std;
 #define NO_OF_INODES 65536       //just wanted to be a multiple of 2. so we can have 65536 files in our filesystem
 #define NO_OF_DATA_BLOCKS 128976 // NO_OF_BLOCKS - NO_OF_INODES - NO_OF_BLOCKS USEDBY_SUPER_BLOCK = 131072 - 2048 - 48 = 128976
 #define FILE_DESCRIPTORS_COUNT 32
+
 
 #define BOLD "\033[1m"
 #define DEFAULT "\033[0m"
@@ -61,6 +64,18 @@ struct super_block //totalsize = 9*4 + 65536 + 128974 = 194548    ceil(194548/4K
             bitmap_data[i] = false;
     }
 };
+
+struct super_block superBlock;
+struct inode in[NO_OF_INODES];
+unordered_map<string, int> file_inode_mp;
+unordered_map<int, pair<int, int>> des_ino_mode_mp;
+unordered_map<string, pair<int, int>> file_mode_desc_mp;
+unordered_map<int, string> desc_file_mp;
+vector<bool> file_descriptors(FILE_DESCRIPTORS_COUNT);
+string mounted_disk_name;
+fstream disk_ptr;
+
+struct termios orig_termios;
 // 194548
 // blocks_usedby_superblock 48
 // blocks_usedby_inode 2048
