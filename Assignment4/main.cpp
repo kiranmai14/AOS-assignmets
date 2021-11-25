@@ -7,23 +7,17 @@ unordered_map<int, pair<int, int>> des_ino_mode_mp;
 unordered_map<string, int> file_mode_mp;
 unordered_map<int, string> desc_file_mp;
 vector<bool> file_descriptors(FILE_DESCRIPTORS_COUNT);
+string mounted_disk_name;
+fstream disk_ptr;
 
 void create_disk(string diskname)
 {
     // creating the super block
     struct super_block sb;
 
-    // making inode bittmap as false
-    for (int i = 0; i < NO_OF_INODES; i++)
-        sb.bitmap_inode[i] = false;
-
-    // making data bitmap as false
-    for (int i = 0; i < NO_OF_DATA_BLOCKS; i++)
-        sb.bitmap_data[i] = false;
-
     // creating an empty disk
     vector<char> empty(BLOCK_SIZE, 0);
-    ofstream ofs(diskname.c_str(), ios::out);
+    ofstream ofs(diskname.c_str(), ios::out | ios::binary);
     for (int i = 0; i < NO_OF_BLOCKS; i++)
     {
         if (!ofs.write(&empty[0], empty.size()))
@@ -37,37 +31,74 @@ void create_disk(string diskname)
     ofs.seekp(sb.inode_starting_index, ios::beg);
     ofs.write(reinterpret_cast<const char *>(&in), sizeof(in));
     ofs.close();
+    cout << GREEN("created disk successfully") << endl;
 }
-void mount(string diskname)
+bool mount(string diskname)
 {
-    ifstream ifs;
-    ifs.open(diskname.c_str(), ios::in);
-    ifs.read((char *)&superBlock, sizeof(superBlock));
-    ifs.seekg(superBlock.inode_starting_index, ios::beg);
-    ifs.read(reinterpret_cast<char *>(&in), sizeof(in));
-    ifs.close();
-}
-void unmount(string diskname)
-{
-    //openeing the disk
-    ofstream ofs(diskname.c_str(), ios::out);
 
+    disk_ptr.open(diskname.c_str(), ios::in | ios::out | ios::binary);
+    if (!disk_ptr.is_open())
+    {
+        cout << RED("unable to open the disk") << endl;
+        return false;
+    }
+    disk_ptr.seekg(0, ios::beg);
+    disk_ptr.read((char *)&superBlock, sizeof(superBlock));
+    disk_ptr.seekg(superBlock.inode_starting_index, ios::beg);
+    disk_ptr.read(reinterpret_cast<char *>(&in), sizeof(in));
+    mounted_disk_name = diskname;
+
+    for (int i = 0; i < NO_OF_INODES; i++)
+    {
+        if (superBlock.bitmap_inode[i])
+        {
+            file_inode_mp[in[i].filename] = i;
+        }
+    }
+    cout << GREEN("mounted disk successfully") << endl;
+    return true;
+}
+bool unmount(string diskname)
+{
+
+    if (!disk_ptr.is_open())
+    {
+        cout << RED("disk is not opened") << endl;
+        return false;
+    }
     // writing the data into super block
-    ofs.seekp(0, ios::beg);
-    ofs.write((char *)&superBlock, sizeof(superBlock));
+    disk_ptr.seekp(0, ios::beg);
+    disk_ptr.write((char *)&superBlock, sizeof(superBlock));
 
     // writing the inodedata into inode
-    ofs.seekp(superBlock.inode_starting_index, ios::beg);
-    ofs.write(reinterpret_cast<const char *>(&in), sizeof(in));
-    ofs.close();
+    disk_ptr.seekp(superBlock.inode_starting_index, ios::beg);
+    disk_ptr.write(reinterpret_cast<const char *>(&in), sizeof(in));
+    disk_ptr.close();
+
+    // making inode bittmap as false
+    for (int i = 0; i < NO_OF_INODES; i++)
+        superBlock.bitmap_inode[i] = false;
+
+    // making data bitmap as false
+    for (int i = 0; i < NO_OF_DATA_BLOCKS; i++)
+        superBlock.bitmap_data[i] = false;
+
+    file_inode_mp.clear();
+    des_ino_mode_mp.clear();
+    desc_file_mp.clear();
+    file_mode_mp.clear();
+    file_descriptors.clear();
+
+    cout << GREEN("unmounted disk successfully") << endl;
+    return true;
 }
 int get_free_data_block()
 {
     for (int i = 0; i < NO_OF_DATA_BLOCKS; i++)
     {
-        if (!superBlock.bitmap_inode[i])
+        if (!superBlock.bitmap_data[i])
         {
-            superBlock.bitmap_inode[i] = true;
+            superBlock.bitmap_data[i] = true;
             return i;
         }
     }
@@ -101,43 +132,62 @@ void create_file(string filename)
 {
     if (file_inode_mp.find(filename) != file_inode_mp.end())
     {
-        cout << "Filename already exists!!" << endl;
-        exit(-1);
+        cout << RED("Filename already exists!!") << endl;
+        return;
     }
     int inode_num, data_block_num;
     if ((inode_num = get_free_inode()) == -1)
     {
-        cout << "Free inodes are not available!!" << endl;
-        exit(-1);
+        cout << RED("Free inodes are not available!!") << endl;
+        return;
     }
     if ((data_block_num = get_free_data_block()) == -1)
     {
-        cout << "Free data blocks are not available!!" << endl;
-        exit(-1);
+        cout << RED("Free data blocks are not available!!") << endl;
+        return;
     }
-    
+
     in[inode_num].filesize = 0;
     strcpy(in[inode_num].filename, filename.c_str());
     in[inode_num].pointers_to_data_blocks[0] = data_block_num;
     file_inode_mp[filename] = inode_num;
     superBlock.bitmap_data[data_block_num] = true;
     superBlock.bitmap_inode[inode_num] = true;
+    cout << GREEN("created file successfully ") << inode_num << endl;
+    for (int i = 0; i < NO_OF_INODES; i++)
+    {
+        if (superBlock.bitmap_inode[i])
+        {
+            file_inode_mp[in[i].filename] = i;
+        }
+    }
 }
 void open_file(string filename, int mode)
 {
+    if (file_inode_mp.find(filename) == file_inode_mp.end())
+    {
+        cout << RED("File is not created!!") << endl;
+        return;
+    }
     int file_descriptor;
     if ((file_descriptor = get_free_filedescriptor()) == -1)
     {
-        cout << "File descriptors are not available!!" << endl;
-        exit(-1);
+        cout << RED("File descriptors are not available!!") << endl;
+        return;
     }
     int inode_num = file_inode_mp[filename];
     file_mode_mp[filename] = mode;
     des_ino_mode_mp[file_descriptor] = make_pair(inode_num, mode);
     desc_file_mp[file_descriptor] = filename;
+    cout << GREEN("opened file with descriptor ") << YELLOW(file_descriptor) << endl;
 }
 void list_files()
 {
+    if (file_inode_mp.size() == 0)
+    {
+        cout << GREEN("No files are there in the disk") << endl;
+        return;
+    }
     for (auto name : file_inode_mp)
     {
         cout << name.first << endl;
@@ -145,50 +195,56 @@ void list_files()
 }
 void list_opened_files()
 {
+    if (file_mode_mp.size() == 0)
+    {
+        cout << GREEN("No opened files") << endl;
+        return;
+    }
     for (auto name : file_mode_mp)
     {
-        cout << name.first << " mode: " << name.second << endl;
+        cout << GREEN(name.first) << GREEN(" mode: ") << GREEN(name.second) << endl;
     }
 }
 void close_file(int file_descriptor)
 {
     if (desc_file_mp.find(file_descriptor) == desc_file_mp.end())
     {
-        cout << "No file is opened with that descriptor" << endl;
-        exit(-1);
+        cout << RED("No file is opened with that descriptor") << endl;
+        return;
     }
     string filename = desc_file_mp[file_descriptor];
     desc_file_mp.erase(file_descriptor);
     file_mode_mp.erase(filename);
     des_ino_mode_mp.erase(file_descriptor);
     file_descriptors[file_descriptor] = false;
+    cout << GREEN("closed file successfully") << endl;
 }
 void show_options_for_disk()
 {
     while (1)
     {
-        cout << "1.create file 2.open file 6.close file 8.list of files 9.list opened files 10.unmount" << endl;
-        cout << "Enter your choice: ";
+        cout << BLUE("1.create file 2.open file 6.close file 8.list of files 9.list opened files 10.unmount") << endl;
+        cout << YELLOW("Enter your choice: ");
         int choice, mode, file_desc;
         string filename, diskname;
         cin >> choice;
         switch (choice)
         {
         case 1:
-            cout << "Enter filename: ";
+            cout << YELLOW("Enter filename: ");
             cin >> filename;
             create_file(filename);
             break;
         case 2:
-            cout << "Enter filename: ";
+            cout << YELLOW("Enter filename: ");
             cin >> filename;
-            cout << "0 read 1 write 2 append" << endl;
-            cout << "Enter mode: ";
+            cout << YELLOW("0.read\n1.write\n2.append") << endl;
+            cout << YELLOW("Enter mode: ");
             cin >> mode;
             open_file(filename, mode);
             break;
         case 6:
-            cout << "Enter file descriptor: ";
+            cout << YELLOW("Enter file descriptor: ");
             cin >> file_desc;
             close_file(file_desc);
             break;
@@ -199,10 +255,11 @@ void show_options_for_disk()
             list_opened_files();
             break;
         case 10:
-            cout << "Enter diskname: ";
-            cin >> diskname;
-            unmount(diskname);
-            return;
+            if (unmount(mounted_disk_name))
+                return;
+            break;
+        default:
+            cout << RED("choose correct choice") << endl;
             break;
         }
     }
@@ -212,26 +269,29 @@ int main()
 
     while (1)
     {
-        cout << "1.createdisk 2.mount 3.Quit" << endl;
-        cout << "Enter your choice: ";
+        cout << BLUE("1.createdisk 2.mount 3.Quit") << endl;
+        cout << YELLOW("Enter your choice: ");
         int choice;
         string diskname;
         cin >> choice;
         switch (choice)
         {
         case 1:
-            cout << "Enter diskname: ";
+            cout << BLUE("Enter diskname: ");
             cin >> diskname;
             create_disk(diskname);
             break;
         case 2:
-            cout << "Enter diskname: ";
+            cout << BLUE("Enter diskname: ");
             cin >> diskname;
-            mount(diskname);
-            show_options_for_disk();
+            if (mount(diskname))
+                show_options_for_disk();
             break;
         case 3:
             exit(0);
+            break;
+        default:
+            cout << RED("choose correct choice") << endl;
             break;
         }
     }

@@ -10,6 +10,21 @@ using namespace std;
 #define NO_OF_DATA_BLOCKS 128976 // NO_OF_BLOCKS - NO_OF_INODES - NO_OF_BLOCKS USEDBY_SUPER_BLOCK = 131072 - 2048 - 48 = 128976
 #define FILE_DESCRIPTORS_COUNT 32
 
+#define BOLD "\033[1m"
+#define DEFAULT "\033[0m"
+#define RED(x) "\x1B[31;1m" << x << "\033[0m"
+#define GREEN(x) "\x1B[32;1m" << x << "\033[0m"
+#define BROWN(x) "\x1B[33m" << x << "\033[0m"
+#define BROWN_B(x) "\x1B[33;1m" << x << "\033[0m"
+#define BLUE(x) "\x1B[34m" << x << "\033[0m"
+#define PURPLE(x) "\x1B[35m" << x << "\033[0m"
+#define YELLOW(x) "\x1B[93m" << x << "\033[0m"
+#define YELLOW_B(x) "\x1B[93;1m" << x << "\033[0m"
+#define WHITE(x) "\x1B[37m" << x << "\033[0m"
+#define CYAN(x) "\x1B[36m" << x << "\033[0m"
+#define MAGENTA(x) "\x1B[35m" << x << "\033[0m"
+#define FBG(x) "\033[1;47;35m" << x << "\033[0m";
+
 struct inode //totalsize = 12*4 + 56 + 8 = 128
 {
     long long filesize;
@@ -18,8 +33,6 @@ struct inode //totalsize = 12*4 + 56 + 8 = 128
     int pointers_to_data_blocks[16]; //12 direct 2 indirect 2 double indirect
     inode()
     {
-        for (int j = 0; j < 52; j++)
-            filename[j] = 0;
         for (int j = 0; j < 16; j++)
             pointers_to_data_blocks[j] = -1;
     }
@@ -37,6 +50,16 @@ struct super_block //totalsize = 9*4 + 65536 + 128974 = 194548    ceil(194548/4K
     int bitmap_data_starting_index = bitmap_inode_starting_index + NO_OF_INODES;
     bool bitmap_inode[NO_OF_INODES];
     bool bitmap_data[NO_OF_DATA_BLOCKS];
+    super_block()
+    {
+        // making inode bittmap as false
+        for (int i = 0; i < NO_OF_INODES; i++)
+            bitmap_inode[i] = false;
+
+        // making data bitmap as false
+        for (int i = 0; i < NO_OF_DATA_BLOCKS; i++)
+            bitmap_data[i] = false;
+    }
 };
 // 194548
 // blocks_usedby_superblock 48
