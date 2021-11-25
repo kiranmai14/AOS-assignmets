@@ -186,3 +186,49 @@ void read_data(int file_descriptor)
         return;
     }
 }
+void delete_file(string filename)
+{
+    if (file_inode_mp.find(filename) == file_inode_mp.end())
+    {
+        cout << RED("File is not present in the disk") << endl;
+        return;
+    }
+    if (file_mode_desc_mp.find(filename) != file_mode_desc_mp.end())
+    {
+        cout << RED("cannot delete an opened file") << endl;
+        return;
+    }
+
+    int inode_num = file_inode_mp[filename];
+    long long file_size = in[inode_num].filesize;
+    if (file_size < 12 * BLOCK_SIZE)
+    {
+        for (int i = 0; i < 12; i++)
+        {
+            if (in[inode_num].pointers_to_data_blocks[i] > -1)
+            {
+                int data_block_num = in[inode_num].pointers_to_data_blocks[i];
+                int offset = superBlock.data_starting_index + data_block_num * BLOCK_SIZE;
+                char buff[BLOCK_SIZE] = {
+                    0,
+                };
+                disk_ptr.seekp(offset, ios::beg);
+                disk_ptr.write(buff, sizeof(buff));
+            }
+        }
+    }
+
+    // resetting inode
+    for (int j = 0; j < 16; j++)
+            in[inode_num].pointers_to_data_blocks[j] = -1;
+    in[inode_num].filesize = 0;
+    memset(in[inode_num].filename,0,sizeof(in[inode_num].filename));
+
+    // making super block clear
+    superBlock.bitmap_inode[inode_num] = false;
+
+    // erasing from the map
+    file_inode_mp.erase(filename);
+
+    cout << GREEN("Deleted file successfully") << endl;
+}
