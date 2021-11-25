@@ -62,7 +62,7 @@ void write_mode(int inode_num)
     cout << endl
          << "Data size using size()" << data_size << endl;
     int no_of_blocks = data_size / BLOCK_SIZE;
-    if (no_of_blocks <= 12)
+    if (no_of_blocks < 12)
     {
         int string_offset = 0;
         for (int i = 0; i <= no_of_blocks; i++)
