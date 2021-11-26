@@ -46,13 +46,6 @@ bool mount(string diskname)
             file_inode_mp[in[i].filename] = i;
         }
     }
-    for (int i = 0; i < NO_OF_DATA_BLOCKS; i++)
-    {
-        if (superBlock.bitmap_data[i])
-        {
-            cout << i << " ";
-        }
-    }
     cout << GREEN("mounted disk successfully") << endl;
     return true;
 }

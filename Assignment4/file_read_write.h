@@ -59,16 +59,12 @@ void write_mode(int inode_num)
     int data_block_num = in[inode_num].pointers_to_data_blocks[0];
     long long data_size = data.size();
     in[inode_num].filesize = data_size;
-    cout << endl
-         << "Data size using size()" << data_size << endl;
     int no_of_blocks = ceil((float)data_size / BLOCK_SIZE);
-    cout << "no of blocks " << no_of_blocks << endl;
     if (no_of_blocks < 12)
     {
         int string_offset = 0;
         for (int i = 0; i < no_of_blocks; i++)
         {
-            cout << "Block number " << data_block_num << endl;
             // updating inode
             in[inode_num].pointers_to_data_blocks[i] = data_block_num;
 
@@ -87,12 +83,10 @@ void write_mode(int inode_num)
 
             memcpy(buff, piece_data.c_str(), len_of_piece);
 
-            cout << "offset " << offset << endl;
 
             // writing the data into disk
             disk_ptr.seekp(offset, ios::beg);
             disk_ptr.write(buff, sizeof(buff));
-            cout << "disk pointer pos: " << disk_ptr.tellg() << endl;
 
             // getting next free block
             data_block_num = get_free_data_block();
@@ -138,7 +132,6 @@ void append_mode(int inode_num)
             for (int i = starting_block; data_size > 0; i++)
             {
                 data_block_num = get_free_data_block();
-                cout << "Block number " << data_block_num << endl;
 
                 // updating inode
                 in[inode_num].pointers_to_data_blocks[i] = data_block_num;
@@ -158,12 +151,9 @@ void append_mode(int inode_num)
 
                 memcpy(buff, piece_data.c_str(), len_of_piece);
 
-                cout << "offset " << offset << endl;
-
                 // writing the data into disk
                 disk_ptr.seekp(offset, ios::beg);
                 disk_ptr.write(buff, sizeof(buff));
-                cout << "disk pointer pos: " << disk_ptr.tellg() << endl;
 
                 data_size = data_size - len_of_piece;
                 string_offset = string_offset + len_of_piece;
@@ -193,17 +183,9 @@ void append_mode(int inode_num)
             };
             memcpy(buff, piece_data.c_str(), len_of_piece);
 
-            cout << endl
-                 << "len of piece " << len_of_piece << endl;
-            cout << "Buffer size " << buffer_size << endl;
-            cout << "offset " << offset << endl;
-            cout << "buff " << buff << endl;
-            cout << "piece data " << piece_data << endl;
-
             // writing the data into disk
             disk_ptr.seekp(offset, ios::beg);
             disk_ptr.write(buff, sizeof(buff));
-            cout << "disk pointer pos: " << disk_ptr.tellg() << endl;
 
             data_size = data_size - len_of_piece;
             string_offset = string_offset + len_of_piece;
@@ -214,7 +196,6 @@ void append_mode(int inode_num)
                 for (int i = starting_block; data_size > 0; i++)
                 {
                     data_block_num = get_free_data_block();
-                    cout << "Block number " << data_block_num << endl;
 
                     // updating inode
                     in[inode_num].pointers_to_data_blocks[i] = data_block_num;
@@ -234,12 +215,9 @@ void append_mode(int inode_num)
 
                     memcpy(buff, piece_data.c_str(), len_of_piece);
 
-                    cout << "offset " << offset << endl;
-
                     // writing the data into disk
                     disk_ptr.seekp(offset, ios::beg);
                     disk_ptr.write(buff, sizeof(buff));
-                    cout << "disk pointer pos: " << disk_ptr.tellg() << endl;
 
                     data_size = data_size - len_of_piece;
                     string_offset = string_offset + len_of_piece;
@@ -292,7 +270,6 @@ void write_data(int file_descriptor)
 void read_mode(int inode_num)
 {
     long long data_size = in[inode_num].filesize;
-    cout << "Data size " << data_size << endl;
     if(data_size == 0)
     {
         cout << GREEN("File is empty") << endl;
@@ -308,7 +285,6 @@ void read_mode(int inode_num)
         for (int i = 0; i <= no_of_blocks; i++)
         {
             data_block_num = in[inode_num].pointers_to_data_blocks[i];
-            cout << "Block number " << data_block_num << endl;
 
             // getting offset
             int offset = superBlock.data_starting_index + data_block_num * BLOCK_SIZE;
@@ -316,8 +292,6 @@ void read_mode(int inode_num)
                 0,
             };
             long long len_of_piece = min((long long)BLOCK_SIZE, data_size);
-
-            cout << "offset " << offset << endl;
 
             // reading the data from disk
             disk_ptr.seekg(offset, ios::beg);
@@ -339,7 +313,6 @@ void read_data(int file_descriptor)
     if (des_ino_mode_mp[file_descriptor].second == 0)
     {
         read_mode(des_ino_mode_mp[file_descriptor].first);
-        cout << endl;
     }
     else
     {
@@ -392,14 +365,6 @@ void delete_file(string filename)
 
     // erasing from the map
     file_inode_mp.erase(filename);
-
-    for (int i = 0; i < NO_OF_DATA_BLOCKS; i++)
-    {
-        if (superBlock.bitmap_data[i])
-        {
-            cout << i << " ";
-        }
-    }
 
     cout << GREEN("Deleted file successfully") << endl;
 }
