@@ -192,7 +192,7 @@ void open_file(string filename, int mode)
     file_mode_desc_mp[filename] = make_pair(mode, file_descriptor);
     des_ino_mode_mp[file_descriptor] = make_pair(inode_num, mode);
     desc_file_mp[file_descriptor] = filename;
-    cout << GREEN("opened file with descriptor ") << YELLOW(file_descriptor) << endl;
+    cout << GREEN("opened file with descriptor ") << YELLOW(file_descriptor) << GREEN(" mode ") << mode << endl;
 }
 void list_files()
 {
