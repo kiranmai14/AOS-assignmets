@@ -61,11 +61,12 @@ void write_mode(int inode_num)
     in[inode_num].filesize = data_size;
     cout << endl
          << "Data size using size()" << data_size << endl;
-    int no_of_blocks = data_size / BLOCK_SIZE;
+    int no_of_blocks = ceil((float)data_size / BLOCK_SIZE);
+    cout << "no of blocks " << no_of_blocks << endl;
     if (no_of_blocks < 12)
     {
         int string_offset = 0;
-        for (int i = 0; i <= no_of_blocks; i++)
+        for (int i = 0; i < no_of_blocks; i++)
         {
             cout << "Block number " << data_block_num << endl;
             // updating inode
@@ -100,8 +101,13 @@ void write_mode(int inode_num)
         }
         // because the for loop exists but it becomes true
         superBlock.bitmap_data[data_block_num] = false;
+        cout << GREEN("Data written to file successfully") << endl;
     }
-    cout << GREEN("Data written to file successfully") << endl;
+    else
+    {
+        cout << RED("File is very large cannot fit in the disk") << endl;
+        return;
+    }
 }
 void append_mode(int inode_num)
 {
@@ -109,36 +115,143 @@ void append_mode(int inode_num)
     long long data_size = data.size();
     int data_block_num;
     long long file_size = in[inode_num].filesize;
-    if (file_size < 12 * BLOCK_SIZE)
+
+    // getting free space from last written block
+    for (int i = 0; i < 12; i++)
     {
-        for (int i = 0; i < 12; i++)
+        if (in[inode_num].pointers_to_data_blocks[i] == -1)
         {
-            if (in[inode_num].pointers_to_data_blocks[i] == -1)
+            data_block_num = i - 1;
+            break;
+        }
+    }
+
+    int no_of_inode_pointers_remaining = 12 - data_block_num - 1;
+    int no_of_blocks = ceil((float)data_size / BLOCK_SIZE);
+    if (file_size % BLOCK_SIZE == 0)
+    {
+        int starting_block = data_block_num + 1;
+        int string_offset = 0;
+        if (no_of_blocks <= no_of_inode_pointers_remaining)
+        {
+            in[inode_num].filesize = in[inode_num].filesize + data_size;
+            for (int i = starting_block; data_size > 0; i++)
             {
-                data_block_num = i - 1;
-                break;
+                data_block_num = get_free_data_block();
+                cout << "Block number " << data_block_num << endl;
+
+                // updating inode
+                in[inode_num].pointers_to_data_blocks[i] = data_block_num;
+
+                // updating superblock bitmap
+                superBlock.bitmap_data[data_block_num] = true;
+
+                // getting offset for next free block
+                int offset = superBlock.data_starting_index + data_block_num * BLOCK_SIZE;
+                char buff[BLOCK_SIZE] = {
+                    0,
+                };
+
+                // need to get the data of required size
+                long long len_of_piece = min((long long)BLOCK_SIZE, data_size);
+                string piece_data = data.substr(string_offset, len_of_piece);
+
+                memcpy(buff, piece_data.c_str(), len_of_piece);
+
+                cout << "offset " << offset << endl;
+
+                // writing the data into disk
+                disk_ptr.seekp(offset, ios::beg);
+                disk_ptr.write(buff, sizeof(buff));
+                cout << "disk pointer pos: " << disk_ptr.tellg() << endl;
+
+                data_size = data_size - len_of_piece;
+                string_offset = string_offset + len_of_piece;
             }
         }
-        int offset = superBlock.data_starting_index + data_block_num * BLOCK_SIZE;
-        offset = offset + (file_size % BLOCK_SIZE);
-        int buffer_size = BLOCK_SIZE - (file_size % BLOCK_SIZE);
-        if (data_size < buffer_size)
+        else
         {
+            cout << RED("File is very large cannot fit in the disk") << endl;
+            return;
+        }
+    }
+    else
+    {
+        if (no_of_blocks <= no_of_inode_pointers_remaining)
+        {
+            in[inode_num].filesize = in[inode_num].filesize + data_size;
+            int offset = superBlock.data_starting_index + data_block_num * BLOCK_SIZE;
+            offset = offset + (file_size % BLOCK_SIZE);
+
+            // writing piece block
+            int string_offset = 0;
+            int len_of_piece = min((long long)(BLOCK_SIZE - (file_size % BLOCK_SIZE)), data_size);
+            int buffer_size = BLOCK_SIZE - (file_size % BLOCK_SIZE);
+            string piece_data = data.substr(string_offset, len_of_piece);
             char buff[buffer_size] = {
                 0,
             };
-            strcpy(buff, data.c_str());
+            memcpy(buff, piece_data.c_str(), len_of_piece);
+
             cout << endl
-                 << "Buffer size " << buffer_size << endl;
+                 << "len of piece " << len_of_piece << endl;
+            cout << "Buffer size " << buffer_size << endl;
             cout << "offset " << offset << endl;
+            cout << "buff " << buff << endl;
+            cout << "piece data " << piece_data << endl;
 
             // writing the data into disk
             disk_ptr.seekp(offset, ios::beg);
             disk_ptr.write(buff, sizeof(buff));
             cout << "disk pointer pos: " << disk_ptr.tellg() << endl;
+
+            data_size = data_size - len_of_piece;
+            string_offset = string_offset + len_of_piece;
+
+            if (data_size > 0)
+            {
+                int starting_block = data_block_num + 1;
+                for (int i = starting_block; data_size > 0; i++)
+                {
+                    data_block_num = get_free_data_block();
+                    cout << "Block number " << data_block_num << endl;
+
+                    // updating inode
+                    in[inode_num].pointers_to_data_blocks[i] = data_block_num;
+
+                    // updating superblock bitmap
+                    superBlock.bitmap_data[data_block_num] = true;
+
+                    // getting offset for next free block
+                    int offset = superBlock.data_starting_index + data_block_num * BLOCK_SIZE;
+                    char buff[BLOCK_SIZE] = {
+                        0,
+                    };
+
+                    // need to get the data of required size
+                    len_of_piece = min((long long)BLOCK_SIZE, data_size);
+                    piece_data = data.substr(string_offset, len_of_piece);
+
+                    memcpy(buff, piece_data.c_str(), len_of_piece);
+
+                    cout << "offset " << offset << endl;
+
+                    // writing the data into disk
+                    disk_ptr.seekp(offset, ios::beg);
+                    disk_ptr.write(buff, sizeof(buff));
+                    cout << "disk pointer pos: " << disk_ptr.tellg() << endl;
+
+                    data_size = data_size - len_of_piece;
+                    string_offset = string_offset + len_of_piece;
+                }
+            }
+        }
+        else
+        {
+            cout << RED("File is very large cannot fit in the disk") << endl;
+            return;
         }
     }
-    in[inode_num].filesize = in[inode_num].filesize + data_size;
     cout << GREEN("Data appended to file successfully") << endl;
 }
 void append_data(int file_descriptor)
@@ -180,6 +293,11 @@ void read_mode(int inode_num)
 {
     long long data_size = in[inode_num].filesize;
     cout << "Data size " << data_size << endl;
+    if(data_size == 0)
+    {
+        cout << GREEN("File is empty") << endl;
+        return;
+    }
     int data_block_num = in[inode_num].pointers_to_data_blocks[0];
     string data;
     int no_of_blocks = data_size / BLOCK_SIZE;
@@ -190,7 +308,7 @@ void read_mode(int inode_num)
         for (int i = 0; i <= no_of_blocks; i++)
         {
             data_block_num = in[inode_num].pointers_to_data_blocks[i];
-            // cout << "Block number " << data_block_num << endl;
+            cout << "Block number " << data_block_num << endl;
 
             // getting offset
             int offset = superBlock.data_starting_index + data_block_num * BLOCK_SIZE;
@@ -199,7 +317,7 @@ void read_mode(int inode_num)
             };
             long long len_of_piece = min((long long)BLOCK_SIZE, data_size);
 
-            // cout << "offset " << offset << endl;
+            cout << "offset " << offset << endl;
 
             // reading the data from disk
             disk_ptr.seekg(offset, ios::beg);
@@ -274,6 +392,14 @@ void delete_file(string filename)
 
     // erasing from the map
     file_inode_mp.erase(filename);
+
+    for (int i = 0; i < NO_OF_DATA_BLOCKS; i++)
+    {
+        if (superBlock.bitmap_data[i])
+        {
+            cout << i << " ";
+        }
+    }
 
     cout << GREEN("Deleted file successfully") << endl;
 }

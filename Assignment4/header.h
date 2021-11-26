@@ -33,7 +33,7 @@ struct inode //totalsize = 12*4 + 56 + 8 = 128
     long long filesize;
     int inode_num;
     char filename[52];               //just wanted size to be a multiple of 2 so gave 52
-    int pointers_to_data_blocks[16]; //12 direct 2 indirect 2 double indirect
+    int pointers_to_data_blocks[16]; 
     inode()
     {
         for (int j = 0; j < 16; j++)
