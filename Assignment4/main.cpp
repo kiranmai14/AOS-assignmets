@@ -153,7 +153,7 @@ void create_file(string filename)
     file_inode_mp[filename] = inode_num;
     superBlock.bitmap_data[data_block_num] = true;
     superBlock.bitmap_inode[inode_num] = true;
-    cout << GREEN("created file successfully with inode_num ") << inode_num << endl;
+    cout << GREEN("created file successfully") << endl;
     for (int i = 0; i < NO_OF_INODES; i++)
     {
         if (superBlock.bitmap_inode[i])
@@ -237,7 +237,7 @@ void show_options_for_disk()
 {
     while (1)
     {
-        cout << BLUE("1.create file 2.open file 3.read file 4.write file 5.append file 6.close file 7.delte file 8.list of files 9.list opened files 10.unmount") << endl;
+        cout << BLUE("1.create file 2.open file 3.read file 4.write file 5.append file 6.close file 7.delete file 8.list of files 9.list opened files 10.unmount") << endl;
         cout << YELLOW("Enter your choice: ");
         int choice, mode, file_desc;
         string filename, diskname;

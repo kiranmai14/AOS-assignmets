@@ -83,7 +83,6 @@ void write_mode(int inode_num)
 
             memcpy(buff, piece_data.c_str(), len_of_piece);
 
-
             // writing the data into disk
             disk_ptr.seekp(offset, ios::beg);
             disk_ptr.write(buff, sizeof(buff));
@@ -95,7 +94,8 @@ void write_mode(int inode_num)
         }
         // because the for loop exists but it becomes true
         superBlock.bitmap_data[data_block_num] = false;
-        cout << GREEN("Data written to file successfully") << endl;
+        cout << endl
+             << GREEN("Data written to file successfully") << endl;
     }
     else
     {
@@ -230,7 +230,8 @@ void append_mode(int inode_num)
             return;
         }
     }
-    cout << GREEN("Data appended to file successfully") << endl;
+    cout << endl
+         << GREEN("Data appended to file successfully") << endl;
 }
 void append_data(int file_descriptor)
 {
@@ -270,7 +271,7 @@ void write_data(int file_descriptor)
 void read_mode(int inode_num)
 {
     long long data_size = in[inode_num].filesize;
-    if(data_size == 0)
+    if (data_size == 0)
     {
         cout << GREEN("File is empty") << endl;
         return;
@@ -301,6 +302,7 @@ void read_mode(int inode_num)
                 cout << buff[i];
             data_size = data_size - len_of_piece;
         }
+        cout << endl;
     }
 }
 void read_data(int file_descriptor)
