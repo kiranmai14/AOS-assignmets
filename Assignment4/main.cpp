@@ -153,7 +153,7 @@ void create_file(string filename)
     file_inode_mp[filename] = inode_num;
     superBlock.bitmap_data[data_block_num] = true;
     superBlock.bitmap_inode[inode_num] = true;
-    cout << GREEN("created file successfully with inode_num") << inode_num << endl;
+    cout << GREEN("created file successfully with inode_num ") << inode_num << endl;
     for (int i = 0; i < NO_OF_INODES; i++)
     {
         if (superBlock.bitmap_inode[i])
@@ -166,8 +166,21 @@ void open_file(string filename, int mode)
 {
     if (file_inode_mp.find(filename) == file_inode_mp.end())
     {
-        cout << RED("File is not created!!") << endl;
+        cout << RED("File is not present in the disk!!") << endl;
         return;
+    }
+    if (file_mode_desc_mp.find(filename) != file_mode_desc_mp.end())
+    {
+        if (file_mode_desc_mp[filename].first == mode)
+        {
+            cout << RED("File is already opened with descriptor ") << GREEN(file_mode_desc_mp[filename].second) << endl;
+            return;
+        }
+        else
+        {
+            cout << RED("File is already opened with mode ") << GREEN(file_mode_desc_mp[filename].first) << endl;
+            return;
+        }
     }
     int file_descriptor;
     if ((file_descriptor = get_free_filedescriptor()) == -1)

@@ -83,7 +83,8 @@ void write_mode(int inode_num)
             // need to get the data of required size
             long long len_of_piece = min((long long)BLOCK_SIZE, data_size);
             string piece_data = data.substr(string_offset, len_of_piece);
-            strcpy(buff, piece_data.c_str());
+
+            memcpy(buff, piece_data.c_str(), len_of_piece);
 
             cout << "offset " << offset << endl;
 
@@ -181,17 +182,33 @@ void read_mode(int inode_num)
     cout << "Data size " << data_size << endl;
     int data_block_num = in[inode_num].pointers_to_data_blocks[0];
     string data;
-    if (data_size < BLOCK_SIZE)
+    int no_of_blocks = data_size / BLOCK_SIZE;
+    cout << GREEN("Data present in the file is:") << endl;
+    if (no_of_blocks < 12)
     {
-        int offset = superBlock.data_starting_index + data_block_num * BLOCK_SIZE;
-        char buff[BLOCK_SIZE] = {
-            0,
-        };
-        disk_ptr.seekg(offset, ios::beg);
-        disk_ptr.read(buff, sizeof(buff));
-        data = buff;
-        cout << GREEN("Data present in the file is:") << endl;
-        cout << data << endl;
+        int string_offset = 0;
+        for (int i = 0; i <= no_of_blocks; i++)
+        {
+            data_block_num = in[inode_num].pointers_to_data_blocks[i];
+            // cout << "Block number " << data_block_num << endl;
+
+            // getting offset
+            int offset = superBlock.data_starting_index + data_block_num * BLOCK_SIZE;
+            char buff[BLOCK_SIZE] = {
+                0,
+            };
+            long long len_of_piece = min((long long)BLOCK_SIZE, data_size);
+
+            // cout << "offset " << offset << endl;
+
+            // reading the data from disk
+            disk_ptr.seekg(offset, ios::beg);
+            disk_ptr.read(buff, sizeof(buff));
+
+            for (int i = 0; i < len_of_piece; i++)
+                cout << buff[i];
+            data_size = data_size - len_of_piece;
+        }
     }
 }
 void read_data(int file_descriptor)
@@ -204,6 +221,7 @@ void read_data(int file_descriptor)
     if (des_ino_mode_mp[file_descriptor].second == 0)
     {
         read_mode(des_ino_mode_mp[file_descriptor].first);
+        cout << endl;
     }
     else
     {
@@ -226,9 +244,10 @@ void delete_file(string filename)
 
     int inode_num = file_inode_mp[filename];
     long long file_size = in[inode_num].filesize;
-    if (file_size < 12 * BLOCK_SIZE)
+    int no_of_blocks = file_size / BLOCK_SIZE;
+    if (no_of_blocks < 12)
     {
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i <= no_of_blocks; i++)
         {
             if (in[inode_num].pointers_to_data_blocks[i] > -1)
             {
